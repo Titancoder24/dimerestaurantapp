@@ -5,6 +5,7 @@
 export type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
 
 type UserRole = "customer" | "owner" | "manager" | "host" | "chef" | "cashier" | "server" | "super_admin";
+type AdminRole = "super" | "support" | "marketing" | "sales" | "ops" | "finance" | "engineering" | "intern";
 type LoyaltyTier = "silver" | "gold" | "platinum" | "diamond";
 type RestaurantType = "fine_dine" | "qsr" | "cafe" | "bar" | "bakery" | "cloud_kitchen" | "food_court";
 type RestaurantStatus = "pending" | "verified" | "suspended" | "banned";
@@ -40,6 +41,8 @@ export type Database = {
           food_preferences: string[]; allergens: string[];
           loyalty_points: number; loyalty_tier: LoyaltyTier;
           referral_code: string | null; is_active: boolean;
+          admin_role: AdminRole | null;
+          admin_permissions: Record<string, boolean>;
           created_at: string; updated_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["users"]["Row"]> & { id: string; email: string };
