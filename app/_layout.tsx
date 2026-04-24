@@ -8,6 +8,12 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/query";
 import { bootstrapAuth } from "@/store/auth";
 import { ToastHost } from "@/components/ui";
+import { useNotificationListener } from "@/hooks/useNotificationListener";
+
+function NotificationBridge() {
+  useNotificationListener();
+  return null;
+}
 
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
@@ -28,6 +34,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
+          <NotificationBridge />
           <Slot />
           <ToastHost />
         </QueryClientProvider>

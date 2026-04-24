@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { Avatar, Card, Header, Icon, Screen, haptic } from "@/components/ui";
 import { useAuth } from "@/store/auth";
 import { useRestaurants, useBanners, useCollections, useActiveOffers, useMyOrders } from "@/hooks/queries";
+import { useUnreadNotificationCount } from "@/hooks/useNotificationListener";
 import { RestaurantCard } from "@/components/restaurant/RestaurantCard";
 import { greeting, rupees } from "@/lib/format";
 import { cn } from "@/lib/cn";
@@ -27,6 +28,7 @@ export default function Home() {
   const { data: collections } = useCollections();
   const { data: offers } = useActiveOffers(null);
   const { data: orders } = useMyOrders();
+  const unreadNotifications = useUnreadNotificationCount();
 
   const lastOrder = useMemo(() => orders?.find((o) => o.status === "paid"), [orders]);
   const activeOrder = useMemo(() => orders?.find((o) => o.status !== "paid" && o.status !== "cancelled"), [orders]);
@@ -49,9 +51,14 @@ export default function Home() {
               haptic.light();
               router.push("/notifications");
             }}
-            className="h-10 w-10 items-center justify-center rounded-full bg-dime-bg-2"
+            className="relative h-10 w-10 items-center justify-center rounded-full bg-dime-bg-2"
           >
             <Icon name="bell.fill" size={18} color="#1C1C1E" />
+            {unreadNotifications > 0 ? (
+              <View className="absolute -right-1 -top-1 h-5 min-w-[20px] items-center justify-center rounded-full bg-dime-orange-500 px-1">
+                <Text className="text-[10px] font-bold text-white">{unreadNotifications > 9 ? "9+" : unreadNotifications}</Text>
+              </View>
+            ) : null}
           </Pressable>
         }
       />
@@ -109,11 +116,21 @@ export default function Home() {
           className="mx-4 mt-4 flex-row items-center gap-3 rounded-2xl border border-dime-orange-200 bg-dime-orange-50 p-3"
         >
           <View className="h-10 w-10 items-center justify-center rounded-full bg-dime-orange-500">
-            <Icon name="bag.fill" size={18} color="#fff" />
+            <Icon
+              name={activeOrder.status === "ready" ? "checkmark.circle.fill" : activeOrder.status === "preparing" ? "flame.fill" : "bag.fill"}
+              size={18}
+              color="#fff"
+            />
           </View>
           <View className="flex-1">
-            <Text className="text-[13px] font-semibold text-dime-orange-700">Order in progress</Text>
-            <Text className="text-[12px] text-dime-ink-2">{activeOrder.order_number} • {activeOrder.status}</Text>
+            <Text className="text-[13px] font-semibold text-dime-orange-700">
+              {activeOrder.status === "received" ? "Order received" :
+               activeOrder.status === "preparing" ? "Kitchen is cooking" :
+               activeOrder.status === "ready" ? "Your food is ready!" :
+               activeOrder.status === "served" ? "Enjoy your meal" :
+               "Order in progress"}
+            </Text>
+            <Text className="text-[12px] text-dime-ink-2">{activeOrder.order_number} • Tap to track live</Text>
           </View>
           <Icon name="chevron.right" size={16} color="#B85A0B" />
         </Pressable>
