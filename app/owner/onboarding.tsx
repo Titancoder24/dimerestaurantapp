@@ -34,8 +34,6 @@ export default function OwnerOnboarding() {
   const profile = useAuth((s) => s.profile);
   const toast = useToast();
 
-  if (!profile) return <Redirect href="/login" />;
-
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
 
@@ -46,8 +44,8 @@ export default function OwnerOnboarding() {
   const [description, setDescription] = useState("");
   const [priceRange, setPriceRange] = useState(2);
 
-  const [phone, setPhone] = useState(profile.phone ?? "");
-  const [email, setEmail] = useState(profile.email);
+  const [phone, setPhone] = useState(profile?.phone ?? "");
+  const [email, setEmail] = useState(profile?.email ?? "");
 
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("Bengaluru");
@@ -66,6 +64,8 @@ export default function OwnerOnboarding() {
 
   const totalSteps = 7;
   const progress = ((step + 1) / totalSteps) * 100;
+
+  if (!profile) return <Redirect href="/login" />;
 
   function next() {
     if (step === 0 && (!name.trim() || cuisines.length === 0)) return toast.error("Add a name and at least one cuisine");
@@ -90,6 +90,7 @@ export default function OwnerOnboarding() {
   }
 
   async function uploadCover() {
+    if (!profile) return;
     setUploading(true);
     try {
       const url = await pickAndUpload({ bucket: "restaurant-media", prefix: profile.id, aspect: [16, 9] });
@@ -99,6 +100,7 @@ export default function OwnerOnboarding() {
     } finally { setUploading(false); }
   }
   async function uploadGallery() {
+    if (!profile) return;
     setUploading(true);
     try {
       const urls = await pickMultipleAndUpload({ bucket: "restaurant-media", prefix: profile.id, max: 5 });
@@ -109,6 +111,7 @@ export default function OwnerOnboarding() {
   }
 
   async function submit() {
+    if (!profile) return;
     setSaving(true);
     try {
       const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + "-" + Math.random().toString(36).slice(2, 6);

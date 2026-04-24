@@ -1,20 +1,24 @@
 import { useEffect, useState } from "react";
 import { Alert, FlatList, Pressable, Text, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
-import { Badge, Button, Chip, Header, Icon, Screen, Sheet, haptic } from "@/components/ui";
+import { Badge, Button, Chip, ChipRow, Header, Icon, Input, Screen, Sheet, Stepper, haptic } from "@/components/ui";
 import { useOwnedRestaurant } from "@/hooks/owner";
 import { useTables } from "@/hooks/queries";
 import { supabase, type Tables } from "@/lib/supabase";
 import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/store/toast";
 
 const zoneFilters = ["all", "indoor", "outdoor", "rooftop", "private", "bar"] as const;
+const zoneOptions: ("indoor" | "outdoor" | "rooftop" | "private" | "bar")[] = ["indoor", "outdoor", "rooftop", "private", "bar"];
 
 export default function OwnerTables() {
   const qc = useQueryClient();
+  const toast = useToast();
   const { data: restaurant } = useOwnedRestaurant();
   const { data: tables, refetch } = useTables(restaurant?.id);
   const [zoneFilter, setZoneFilter] = useState<(typeof zoneFilters)[number]>("all");
   const [qrTable, setQrTable] = useState<Tables<"tables"> | null>(null);
+  const [editor, setEditor] = useState<Partial<Tables<"tables">> | null>(null);
 
   useEffect(() => {
     if (!restaurant?.id) return;
@@ -39,9 +43,38 @@ export default function OwnerTables() {
     haptic.light();
   }
 
+  async function deleteTable(id: string) {
+    Alert.alert("Delete table?", "All data linked to this table will be unlinked.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: async () => {
+        await supabase.from("tables").delete().eq("id", id);
+        qc.invalidateQueries({ queryKey: ["tables"] });
+      } },
+    ]);
+  }
+
+  function nextNumber() {
+    const used = new Set((tables ?? []).map((t) => t.number));
+    let n = 1;
+    while (used.has(n)) n++;
+    return n;
+  }
+
   return (
     <Screen scroll={false}>
-      <Header title="Tables" subtitle={restaurant?.name} />
+      <Header
+        title="Tables"
+        subtitle={restaurant?.name}
+        right={
+          <Pressable
+            onPress={() => setEditor({ number: nextNumber(), seats: 4, zone: "indoor" })}
+            className="rounded-full bg-dime-orange-500 px-3 py-1.5"
+          >
+            <Text className="text-[12px] font-semibold text-white">+ Table</Text>
+          </Pressable>
+        }
+      />
+
       <View className="flex-row gap-2 px-4">
         <Summary color="bg-emerald-500" label="Available" value={counts.available} />
         <Summary color="bg-dime-danger" label="Occupied" value={counts.occupied} />
@@ -68,6 +101,13 @@ export default function OwnerTables() {
         numColumns={2}
         columnWrapperStyle={{ gap: 12 }}
         contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 120 }}
+        ListEmptyComponent={
+          <View className="items-center py-16">
+            <Icon name="tablecells" size={32} color="#C7C7CC" />
+            <Text className="mt-3 text-[15px] font-semibold text-dime-ink">No tables yet</Text>
+            <Text className="mt-1 text-[13px] text-dime-ink-3">Tap + Table to add your first one.</Text>
+          </View>
+        }
         renderItem={({ item: t }) => {
           const tone = {
             available: "bg-emerald-50 border-emerald-200",
@@ -76,7 +116,7 @@ export default function OwnerTables() {
             blocked: "bg-gray-100 border-gray-300",
           }[t.status];
           return (
-            <View className={`flex-1 overflow-hidden rounded-2xl border ${tone} p-3`}>
+            <Pressable onPress={() => setEditor(t)} className={`flex-1 overflow-hidden rounded-2xl border ${tone} p-3`}>
               <View className="flex-row items-center justify-between">
                 <Text className="text-[20px] font-bold text-dime-ink">#{t.number}</Text>
                 <Badge
@@ -87,18 +127,20 @@ export default function OwnerTables() {
               <Text className="mt-1 text-[12px] text-dime-ink-2">{t.seats} seats • {t.zone}</Text>
               <View className="mt-3 flex-row gap-2">
                 <Pressable
-                  onPress={() => setQrTable(t)}
+                  onPress={(e) => { e.stopPropagation(); setQrTable(t); }}
                   className="flex-1 items-center rounded-lg border border-dime-border bg-white py-2"
                 >
                   <Icon name="qrcode" size={16} color="#FC8019" />
                 </Pressable>
                 <Pressable
-                  onPress={() => {
-                    Alert.alert("Change status", "Update table status", [
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    Alert.alert("Status", undefined, [
                       { text: "Cancel", style: "cancel" },
                       { text: "Available", onPress: () => setStatus(t.id, "available") },
                       { text: "Reserved", onPress: () => setStatus(t.id, "reserved") },
                       { text: "Blocked", onPress: () => setStatus(t.id, "blocked") },
+                      { text: "Delete", style: "destructive", onPress: () => deleteTable(t.id) },
                     ]);
                   }}
                   className="flex-1 items-center rounded-lg border border-dime-border bg-white py-2"
@@ -106,7 +148,7 @@ export default function OwnerTables() {
                   <Icon name="ellipsis" size={16} color="#8E8E93" />
                 </Pressable>
               </View>
-            </View>
+            </Pressable>
           );
         }}
       />
@@ -116,12 +158,12 @@ export default function OwnerTables() {
           {qrTable ? (
             <View className="items-center py-4">
               <Text className="text-[18px] font-semibold text-dime-ink">Table {qrTable.number}</Text>
-              <Text className="mt-1 text-[12px] text-dime-ink-3">Print and place at the table</Text>
+              <Text className="mt-1 text-[12px] text-dime-ink-3">Print and place on the table</Text>
               <View className="mt-4 rounded-2xl border-4 border-dime-orange-500 p-4">
                 <QRCode value={qrTable.qr_data} size={180} />
               </View>
               <View className="mt-4 items-center">
-                <Text className="text-[11px] uppercase tracking-widest text-dime-ink-3">dime.app</Text>
+                <Text className="text-[11px] uppercase tracking-widest text-dime-ink-3">{restaurant?.name}</Text>
                 <Text className="text-[17px] font-semibold text-dime-orange-600">Table #{qrTable.number}</Text>
               </View>
               <View className="mt-6 w-full">
@@ -131,7 +173,90 @@ export default function OwnerTables() {
           ) : null}
         </Sheet.Body>
       </Sheet>
+
+      <TableEditor
+        table={editor}
+        restaurantId={restaurant?.id}
+        onClose={() => setEditor(null)}
+        onSaved={() => {
+          setEditor(null);
+          qc.invalidateQueries({ queryKey: ["tables"] });
+        }}
+      />
     </Screen>
+  );
+}
+
+function TableEditor({
+  table,
+  restaurantId,
+  onClose,
+  onSaved,
+}: {
+  table: Partial<Tables<"tables">> | null;
+  restaurantId?: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const toast = useToast();
+  const [number, setNumber] = useState("1");
+  const [seats, setSeats] = useState(4);
+  const [zone, setZone] = useState<typeof zoneOptions[number]>("indoor");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!table) return;
+    setNumber(String(table.number ?? 1));
+    setSeats(table.seats ?? 4);
+    setZone((table.zone as typeof zoneOptions[number]) ?? "indoor");
+  }, [table]);
+
+  async function save() {
+    if (!restaurantId) return;
+    const n = parseInt(number, 10);
+    if (!Number.isFinite(n) || n < 1) return toast.error("Enter a table number");
+    setSaving(true);
+    try {
+      if (table?.id) {
+        await supabase.from("tables").update({ number: n, seats, zone }).eq("id", table.id);
+      } else {
+        // qr_data is generated by the BEFORE INSERT trigger.
+        await supabase.from("tables").insert({ restaurant_id: restaurantId, number: n, seats, zone });
+      }
+      haptic.success();
+      onSaved();
+    } catch (e) {
+      toast.error("Could not save", (e as Error).message);
+    } finally { setSaving(false); }
+  }
+
+  return (
+    <Sheet visible={!!table} onClose={onClose} maxHeight="60%">
+      <Sheet.Body>
+        <Text className="text-[18px] font-semibold text-dime-ink">{table?.id ? `Edit Table ${table.number}` : "New table"}</Text>
+        <View className="mt-4 gap-3">
+          <Input label="Table number" value={number} onChangeText={setNumber} keyboardType="number-pad" />
+          <View>
+            <Text className="mb-2 text-[13px] font-medium text-dime-ink-2">Seats</Text>
+            <View className="flex-row items-center justify-between rounded-xl border border-dime-border bg-white px-4 py-3">
+              <Text className="text-[15px] text-dime-ink">{seats} seats</Text>
+              <Stepper value={seats} onChange={setSeats} min={1} max={20} size="sm" />
+            </View>
+          </View>
+          <View>
+            <Text className="mb-2 text-[13px] font-medium text-dime-ink-2">Zone</Text>
+            <ChipRow>
+              {zoneOptions.map((z) => (
+                <Chip key={z} label={z} selected={zone === z} onPress={() => setZone(z)} />
+              ))}
+            </ChipRow>
+          </View>
+        </View>
+        <View className="mt-5">
+          <Button label={table?.id ? "Save" : "Add table"} loading={saving} onPress={save} fullWidth />
+        </View>
+      </Sheet.Body>
+    </Sheet>
   );
 }
 
