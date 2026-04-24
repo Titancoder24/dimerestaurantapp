@@ -80,6 +80,12 @@ export default function LoginScreen() {
             <Link href="/signup" className="text-[13px] font-semibold text-dime-orange-600">Create an account</Link>
           </View>
 
+          <View className="mt-3 items-center">
+            <Link href={{ pathname: "/signup", params: { role: "owner" } }} className="text-[12px] font-medium text-dime-ink-3">
+              Restaurant owner? <Text className="font-semibold text-dime-orange-600">Partner with DIME →</Text>
+            </Link>
+          </View>
+
           <View className="my-8 flex-row items-center gap-3">
             <View className="h-px flex-1 bg-dime-border" />
             <Text className="text-[11px] uppercase tracking-widest text-dime-ink-3">Quick demo</Text>

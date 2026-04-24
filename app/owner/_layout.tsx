@@ -34,6 +34,10 @@ export default function OwnerLayout() {
   if (profile && profile.role !== "owner" && profile.role !== "manager" && profile.role !== "super_admin") {
     return <Redirect href="/home" />;
   }
+  // Owners with no restaurant yet need to onboard first.
+  if (profile?.role === "owner" && restaurant === null && !pathname.endsWith("/onboarding")) {
+    return <Redirect href="/owner/onboarding" />;
+  }
 
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-dime-bg-grouped">

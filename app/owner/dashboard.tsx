@@ -34,6 +34,28 @@ export default function OwnerDashboard() {
         <Text className="text-[24px] font-semibold text-dime-ink">{restaurant?.name}</Text>
       </View>
 
+      {restaurant?.status === "pending" ? (
+        <View className="flex-row items-center gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4">
+          <View className="h-10 w-10 items-center justify-center rounded-full bg-amber-500">
+            <Icon name="clock.fill" size={18} color="#fff" />
+          </View>
+          <View className="flex-1">
+            <Text className="text-[14px] font-semibold text-amber-900">Awaiting approval</Text>
+            <Text className="text-[12px] text-amber-800">Our team is reviewing your application. While you wait, you can build your menu, add tables, and upload photos.</Text>
+          </View>
+        </View>
+      ) : restaurant?.status === "suspended" || restaurant?.status === "banned" ? (
+        <View className="flex-row items-center gap-3 rounded-2xl border border-red-300 bg-red-50 p-4">
+          <View className="h-10 w-10 items-center justify-center rounded-full bg-dime-danger">
+            <Icon name="exclamationmark.triangle.fill" size={18} color="#fff" />
+          </View>
+          <View className="flex-1">
+            <Text className="text-[14px] font-semibold text-red-900">Listing {restaurant.status}</Text>
+            <Text className="text-[12px] text-red-800">Contact support@dime.app to resolve.</Text>
+          </View>
+        </View>
+      ) : null}
+
       <View className="flex-row flex-wrap gap-3">
         <Kpi label="Orders today" value={String(todayOrders.length)} delta={todayOrders.length - ysdayOrders.length} icon="bag.fill" />
         <Kpi label="Revenue today" value={rupees(todayRevenue)} delta={revDelta} suffix="%" icon="chart.line.uptrend.xyaxis" />
