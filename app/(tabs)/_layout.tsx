@@ -1,5 +1,5 @@
 import { Redirect, Tabs } from "expo-router";
-import { Pressable, Text, View } from "react-native";
+import { Platform, Pressable, Text, useWindowDimensions, View } from "react-native";
 import { useAuth } from "@/store/auth";
 import { Icon, haptic } from "@/components/ui";
 import { cn } from "@/lib/cn";
@@ -14,12 +14,17 @@ const tabs: TabRoute[] = [
 
 export default function CustomerTabs() {
   const session = useAuth((s) => s.session);
+  const { width } = useWindowDimensions();
+  // On web at desktop sizes, the CustomerWebShell renders the top nav,
+  // so we hide the bottom tab bar entirely.
+  const useTopNavOnly = Platform.OS === "web" && width >= 900;
+
   if (!session) return <Redirect href="/login" />;
 
   return (
     <Tabs
       screenOptions={{ headerShown: false, tabBarStyle: { display: "none" } }}
-      tabBar={({ state, navigation }) => (
+      tabBar={useTopNavOnly ? () => null : ({ state, navigation }) => (
         <View className="flex-row items-center justify-around border-t border-dime-border bg-white/95 px-3 pb-6 pt-2">
           {tabs.map((t, i) => {
             const focused = state.index === i;
