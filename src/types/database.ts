@@ -55,6 +55,7 @@ export type Database = {
           fssai_number: string | null; gst_number: string | null;
           tax_rate: number; service_charge_rate: number;
           cover_image_url: string | null; gallery_images: string[];
+          logo_url: string | null;
           status: RestaurantStatus; featured: boolean;
           created_at: string; updated_at: string;
         };

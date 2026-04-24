@@ -7,6 +7,16 @@ const esc = (s: string): string =>
 const rupee = (n: number): string =>
   "₹" + Math.round(n).toLocaleString("en-IN");
 
+/**
+ * Render an <img> for the brand logo, or empty string if the owner
+ * hasn't uploaded one or has toggled showLogo off. `size` controls
+ * max dimensions; the image scales to fit while preserving ratio.
+ */
+function logoImg(data: MenuData, style: MenuStyle, size = 80, classes = "logo"): string {
+  if (!style.showLogo || !data.logoUrl) return "";
+  return `<img class="${classes}" src="${data.logoUrl}" alt="logo" style="max-height: ${size}px; max-width: ${size * 2}px; object-fit: contain;" />`;
+}
+
 // Shared <head> snippet — Google Fonts import + size box.
 function head(style: MenuStyle, extra = ""): string {
   const fonts = encodeURI([style.fontHeading, style.fontBody, "Inter"].filter(Boolean).join("|"));
@@ -99,7 +109,7 @@ const sleekModern: MenuTemplate = {
   defaultStyle: {
     accent: "#FC8019", ink: "#1C1C1E", paper: "#FFFFFF",
     fontHeading: "Inter", fontBody: "Inter",
-    pageSize: "A4", showPrices: true, showVegMarkers: true,
+    pageSize: "A4", showPrices: true, showVegMarkers: true, showLogo: true,
   },
   render: (d, s) => `
     <!DOCTYPE html><html><head>${head(s, `
@@ -119,7 +129,9 @@ const sleekModern: MenuTemplate = {
       .price { font-size: 15px; font-weight: 600; }
       .best-pill { background: ${s.accent}1a; color: ${s.accent}; }
       .footer { margin-top: 40px; font-size: 11px; color: #8e8e93; }
+      .logo { display: block; margin-bottom: 16px; }
     `)}</head><body><div class="page">
+      ${logoImg(d, s, 64)}
       <div class="brand">Menu</div>
       <h1 class="name">${esc(d.restaurantName)}</h1>
       <div class="tag">${esc(d.tagline)}</div>
@@ -139,7 +151,7 @@ const vintageBistro: MenuTemplate = {
   defaultStyle: {
     accent: "#8B5E3C", ink: "#2D1810", paper: "#F4EDDD",
     fontHeading: "Playfair Display", fontBody: "Lora",
-    pageSize: "A4", showPrices: true, showVegMarkers: true,
+    pageSize: "A4", showPrices: true, showVegMarkers: true, showLogo: true,
   },
   render: (d, s) => `
     <!DOCTYPE html><html><head>${head(s, `
@@ -162,8 +174,10 @@ const vintageBistro: MenuTemplate = {
       .price { font-weight: 700; color: ${s.accent}; }
       .best-pill { background: ${s.accent}; color: ${s.paper}; }
       .footer { text-align: center; margin-top: 24px; font-size: 11px; font-style: italic; }
+      .logo.center { margin: 0 auto 12px; display: block; }
     `)}</head><body><div class="page"><div class="frame">
       <div class="header">
+        ${logoImg(d, s, 70, "logo center")}
         <div class="pre">Restaurant</div>
         <h1 class="name">${esc(d.restaurantName)}</h1>
         <div class="tag">${esc(d.tagline)}</div>
@@ -205,7 +219,7 @@ const boldStatement: MenuTemplate = {
   defaultStyle: {
     accent: "#FC8019", ink: "#1C1C1E", paper: "#FFFFFF",
     fontHeading: "Bebas Neue", fontBody: "Inter",
-    pageSize: "A4", showPrices: true, showVegMarkers: true,
+    pageSize: "A4", showPrices: true, showVegMarkers: true, showLogo: true,
   },
   render: (d, s) => `
     <!DOCTYPE html><html><head>${head(s, `
@@ -223,8 +237,10 @@ const boldStatement: MenuTemplate = {
       .price { font-size: 18px; font-weight: 700; color: ${s.accent}; }
       .best-pill { background: black; color: white; }
       .footer { padding: 0 64px 40px; font-size: 11px; color: #8e8e93; }
+      .logo.invert { display: block; margin-bottom: 12px; background: rgba(255,255,255,0.95); padding: 4px 6px; border-radius: 4px; }
     `)}</head><body>
       <div class="hero">
+        ${logoImg(d, s, 56, "logo invert")}
         <div class="pre">— Menu —</div>
         <h1 class="name">${esc(d.restaurantName).toUpperCase()}</h1>
         <div class="tag">${esc(d.tagline)}</div>
@@ -246,7 +262,7 @@ const cafeChalkboard: MenuTemplate = {
   defaultStyle: {
     accent: "#FFD166", ink: "#F2F2F2", paper: "#1B2826",
     fontHeading: "Caveat", fontBody: "Patrick Hand",
-    pageSize: "A4", showPrices: true, showVegMarkers: false,
+    pageSize: "A4", showPrices: true, showVegMarkers: false, showLogo: true,
   },
   render: (d, s) => `
     <!DOCTYPE html><html><head>${head(s, `
@@ -265,8 +281,10 @@ const cafeChalkboard: MenuTemplate = {
       .desc { font-size: 16px; opacity: 0.7; }
       .best-pill { background: ${s.accent}; color: ${s.paper}; }
       .footer { margin-top: 28px; text-align: center; opacity: 0.6; font-size: 14px; }
+      .logo.center { display: block; margin: 0 auto 12px; filter: brightness(1.1); }
     `)}</head><body><div class="page">
       <div class="header">
+        ${logoImg(d, s, 64, "logo center")}
         <h1 class="name">${esc(d.restaurantName)}</h1>
         <div class="tag">${esc(d.tagline)}</div>
       </div>
@@ -285,7 +303,7 @@ const tropicalCafe: MenuTemplate = {
   defaultStyle: {
     accent: "#0E9594", ink: "#264653", paper: "#FFF8F1",
     fontHeading: "Pacifico", fontBody: "Quicksand",
-    pageSize: "A4", showPrices: true, showVegMarkers: true,
+    pageSize: "A4", showPrices: true, showVegMarkers: true, showLogo: true,
   },
   render: (d, s) => `
     <!DOCTYPE html><html><head>${head(s, `
@@ -306,10 +324,12 @@ const tropicalCafe: MenuTemplate = {
       .price { font-weight: 700; color: ${s.accent}; }
       .best-pill { background: #F4A261; color: white; }
       .footer { margin-top: 28px; text-align: center; font-size: 11px; opacity: 0.7; }
+      .logo.center { display: block; margin: 0 auto 8px; }
     `)}</head><body><div class="page">
       <div class="leaf tl">🌴</div>
       <div class="leaf br">🌴</div>
       <div class="header">
+        ${logoImg(d, s, 70, "logo center")}
         <h1 class="name">${esc(d.restaurantName)}</h1>
         <div class="tag">${esc(d.tagline)}</div>
         <div class="ribbon">Today's Menu</div>
@@ -329,7 +349,7 @@ const fineDine: MenuTemplate = {
   defaultStyle: {
     accent: "#D4AF37", ink: "#EFE7D2", paper: "#1A1A1A",
     fontHeading: "Cormorant Garamond", fontBody: "Cormorant Garamond",
-    pageSize: "A4", showPrices: true, showVegMarkers: false,
+    pageSize: "A4", showPrices: true, showVegMarkers: false, showLogo: true,
   },
   render: (d, s) => `
     <!DOCTYPE html><html><head>${head(s, `
@@ -346,8 +366,10 @@ const fineDine: MenuTemplate = {
       .price { font-size: 14px; color: ${s.accent}; margin-top: 4px; }
       .best-pill { background: transparent; color: ${s.accent}; border: 1px solid ${s.accent}; }
       .footer { margin-top: 32px; text-align: center; font-size: 11px; opacity: 0.6; letter-spacing: 0.2em; }
+      .logo.center { display: block; margin: 0 auto 14px; filter: brightness(1.05); }
     `)}</head><body><div class="page">
       <div class="header">
+        ${logoImg(d, s, 72, "logo center")}
         <div class="pre">— Carte —</div>
         <h1 class="name">${esc(d.restaurantName)}</h1>
         <div class="tag">${esc(d.tagline)}</div>
@@ -367,7 +389,7 @@ const streetFood: MenuTemplate = {
   defaultStyle: {
     accent: "#FF3D5A", ink: "#1A1A1A", paper: "#FFD600",
     fontHeading: "Fredoka One", fontBody: "Nunito",
-    pageSize: "A4", showPrices: true, showVegMarkers: true,
+    pageSize: "A4", showPrices: true, showVegMarkers: true, showLogo: true,
   },
   render: (d, s) => `
     <!DOCTYPE html><html><head>${head(s, `
@@ -385,8 +407,10 @@ const streetFood: MenuTemplate = {
       .price { background: ${s.accent}; color: white; padding: 4px 10px; border-radius: 999px; font-weight: 700; }
       .best-pill { background: ${s.ink}; color: ${s.paper}; }
       .footer { text-align: center; margin-top: 20px; font-weight: 700; }
+      .logo.center { display: block; margin: 0 auto 8px; }
     `)}</head><body><div class="page">
       <div class="header">
+        ${logoImg(d, s, 72, "logo center")}
         <h1 class="name">${esc(d.restaurantName)}</h1>
         <div class="tag">${esc(d.tagline)}</div>
       </div>
@@ -405,7 +429,7 @@ const sushiZen: MenuTemplate = {
   defaultStyle: {
     accent: "#BC002D", ink: "#1C1C1E", paper: "#FCFAF5",
     fontHeading: "Noto Serif JP", fontBody: "Inter",
-    pageSize: "A4", showPrices: true, showVegMarkers: false,
+    pageSize: "A4", showPrices: true, showVegMarkers: false, showLogo: true,
   },
   render: (d, s) => `
     <!DOCTYPE html><html><head>${head(s, `
@@ -422,8 +446,11 @@ const sushiZen: MenuTemplate = {
       .price { font-size: 14px; }
       .best-pill { background: ${s.accent}; color: white; }
       .footer { margin-top: 40px; font-size: 10.5px; opacity: 0.5; letter-spacing: 0.3em; text-transform: uppercase; }
+      .logo { display: block; margin-bottom: 28px; }
     `)}</head><body><div class="page">
-      <div class="dot"></div>
+      ${d.logoUrl && s.showLogo
+        ? logoImg(d, s, 64, "logo")
+        : `<div class="dot"></div>`}
       <h1 class="name">${esc(d.restaurantName)}</h1>
       <div class="tag">${esc(d.tagline)}</div>
       ${renderSections(d, s, "row")}

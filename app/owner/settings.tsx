@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { Text, View } from "react-native";
-import { Button, Chip, ChipRow, Header, Input, Screen } from "@/components/ui";
+import { Image, Pressable, Text, View } from "react-native";
+import { Button, Chip, ChipRow, Header, Icon, Input, Screen, haptic } from "@/components/ui";
 import { useOwnedRestaurant } from "@/hooks/owner";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/store/toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { pickAndUpload } from "@/lib/upload";
 
 const amenityPool = ["Wifi","Parking","AC","Valet","Outdoor Seating","Pet Friendly","Live Music","Chef Counter","Wine Bar","Rooftop"];
 
@@ -22,6 +23,7 @@ export default function Settings() {
   const [svc, setSvc] = useState("0");
   const [amenities, setAmenities] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState<"logo" | "cover" | null>(null);
 
   useEffect(() => {
     if (!restaurant) return;
@@ -52,9 +54,58 @@ export default function Settings() {
 
   const toggleAmenity = (a: string) => setAmenities(amenities.includes(a) ? amenities.filter((x) => x !== a) : [...amenities, a]);
 
+  async function uploadAsset(field: "logo_url" | "cover_image_url", kind: "logo" | "cover") {
+    if (!restaurant) return;
+    setUploading(kind);
+    try {
+      const url = await pickAndUpload({
+        bucket: "restaurant-media",
+        prefix: `${restaurant.id}/${kind}`,
+        aspect: kind === "cover" ? [16, 9] : undefined,
+      });
+      if (!url) return;
+      await supabase.from("restaurants").update({ [field]: url }).eq("id", restaurant.id);
+      qc.invalidateQueries({ queryKey: ["owned-restaurant"] });
+      haptic.success();
+      toast.success(kind === "logo" ? "Logo updated" : "Cover updated");
+    } catch (e) {
+      haptic.error();
+      toast.error("Upload failed", (e as Error).message);
+    } finally { setUploading(null); }
+  }
+
+  async function clearAsset(field: "logo_url" | "cover_image_url") {
+    if (!restaurant) return;
+    await supabase.from("restaurants").update({ [field]: null }).eq("id", restaurant.id);
+    qc.invalidateQueries({ queryKey: ["owned-restaurant"] });
+  }
+
   return (
     <Screen>
       <Header title="Restaurant settings" />
+
+      <View className="mx-4 mb-3 rounded-2xl border border-dime-border bg-white p-3">
+        <Text className="mb-2 text-[11px] font-bold uppercase tracking-widest text-dime-ink-3">Brand assets</Text>
+        <View className="flex-row gap-3">
+          <AssetTile
+            label="Logo"
+            uri={restaurant?.logo_url ?? null}
+            uploading={uploading === "logo"}
+            onUpload={() => uploadAsset("logo_url", "logo")}
+            onClear={() => clearAsset("logo_url")}
+            ratio="square"
+          />
+          <AssetTile
+            label="Cover photo"
+            uri={restaurant?.cover_image_url ?? null}
+            uploading={uploading === "cover"}
+            onUpload={() => uploadAsset("cover_image_url", "cover")}
+            onClear={() => clearAsset("cover_image_url")}
+            ratio="wide"
+          />
+        </View>
+      </View>
+
       <View className="px-4 gap-3">
         <Input label="Name" value={name} onChangeText={setName} />
         <Input label="Description" value={description} onChangeText={setDescription} multiline numberOfLines={3} />
@@ -77,5 +128,44 @@ export default function Settings() {
         <Button label="Save changes" loading={saving} onPress={save} fullWidth />
       </View>
     </Screen>
+  );
+}
+
+function AssetTile({
+  label, uri, uploading, onUpload, onClear, ratio,
+}: {
+  label: string;
+  uri: string | null;
+  uploading: boolean;
+  onUpload: () => void;
+  onClear: () => void;
+  ratio: "square" | "wide";
+}) {
+  const aspectClass = ratio === "wide" ? "aspect-[16/9]" : "aspect-square";
+  return (
+    <View className="flex-1">
+      <Pressable
+        onPress={onUpload}
+        disabled={uploading}
+        className={`${aspectClass} items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-dime-orange-300 bg-dime-orange-50`}
+      >
+        {uri ? (
+          <Image source={{ uri }} className="h-full w-full" resizeMode="contain" />
+        ) : (
+          <View className="items-center">
+            <Icon name="plus" size={20} color="#FC8019" />
+            <Text className="mt-1 text-[10px] font-semibold text-dime-orange-700">{uploading ? "Uploading..." : "Upload"}</Text>
+          </View>
+        )}
+      </Pressable>
+      <View className="mt-1.5 flex-row items-center justify-between">
+        <Text className="text-[11px] font-medium text-dime-ink-2">{label}</Text>
+        {uri ? (
+          <Pressable onPress={onClear} hitSlop={6}>
+            <Text className="text-[10px] font-semibold text-dime-danger">Remove</Text>
+          </Pressable>
+        ) : null}
+      </View>
+    </View>
   );
 }

@@ -16,6 +16,7 @@ export type MenuData = {
   restaurantName: string;
   tagline: string;
   footnote: string;
+  logoUrl: string | null;
   sections: MenuSection[];
 };
 
@@ -28,6 +29,7 @@ export type MenuStyle = {
   pageSize: "A4" | "Letter";
   showPrices: boolean;
   showVegMarkers: boolean;
+  showLogo: boolean;
 };
 
 export type MenuTemplate = {

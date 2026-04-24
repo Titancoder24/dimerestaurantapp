@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { Image, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button, Chip, ChipRow, Header, Icon, Input, Screen, haptic } from "@/components/ui";
 import { useToast } from "@/store/toast";
 import { templateById } from "@/menu-designer/templates";
 import { buildMenuData } from "@/menu-designer/build";
 import { useOwnedRestaurant } from "@/hooks/owner";
+import { pickAndUpload } from "@/lib/upload";
+import { supabase } from "@/lib/supabase";
 import type { MenuData, MenuStyle } from "@/menu-designer/types";
 
 export default function MenuDesignerCustomizer() {
@@ -20,6 +23,8 @@ export default function MenuDesignerCustomizer() {
   const [data, setData] = useState<MenuData | null>(null);
   const [style, setStyle] = useState<MenuStyle | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const qc = useQueryClient();
 
   // Initial style from template
   useEffect(() => {
@@ -59,6 +64,35 @@ export default function MenuDesignerCustomizer() {
   }
   function patchData(d: Partial<MenuData>) {
     setData((prev) => ({ ...(prev as MenuData), ...d }));
+  }
+
+  async function uploadLogo() {
+    if (!restaurant?.id) return;
+    setUploadingLogo(true);
+    try {
+      const url = await pickAndUpload({ bucket: "restaurant-media", prefix: `${restaurant.id}/logo` });
+      if (!url) return;
+      // Persist to the restaurant so it's the default for every future design
+      // and shows up in customer-facing surfaces too.
+      await supabase.from("restaurants").update({ logo_url: url }).eq("id", restaurant.id);
+      qc.invalidateQueries({ queryKey: ["owned-restaurant"] });
+      patchData({ logoUrl: url });
+      haptic.success();
+      toast.success("Logo uploaded", "Now appears on all your menu designs.");
+    } catch (e) {
+      haptic.error();
+      toast.error("Upload failed", (e as Error).message);
+    } finally {
+      setUploadingLogo(false);
+    }
+  }
+
+  async function removeLogo() {
+    if (!restaurant?.id) return;
+    await supabase.from("restaurants").update({ logo_url: null }).eq("id", restaurant.id);
+    qc.invalidateQueries({ queryKey: ["owned-restaurant"] });
+    patchData({ logoUrl: null });
+    haptic.light();
   }
 
   async function exportPdf() {
@@ -125,6 +159,56 @@ export default function MenuDesignerCustomizer() {
             <Input label="Restaurant name" value={data.restaurantName} onChangeText={(t) => patchData({ restaurantName: t })} />
             <Input label="Tagline" value={data.tagline} onChangeText={(t) => patchData({ tagline: t })} multiline numberOfLines={2} />
             <Input label="Footnote" value={data.footnote} onChangeText={(t) => patchData({ footnote: t })} multiline numberOfLines={2} />
+          </View>
+        </View>
+
+        <View className="mx-4 mt-5">
+          <SectionHeader icon="photo.fill" title="Brand logo" />
+          <View className="flex-row gap-3 rounded-2xl border border-dime-border bg-white p-3">
+            <Pressable
+              onPress={uploadLogo}
+              disabled={uploadingLogo}
+              className="h-20 w-20 items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-dime-orange-300 bg-dime-orange-50"
+            >
+              {data.logoUrl ? (
+                <Image source={{ uri: data.logoUrl }} className="h-full w-full" resizeMode="contain" />
+              ) : (
+                <View className="items-center">
+                  <Icon name="plus" size={18} color="#FC8019" />
+                  <Text className="mt-1 text-[9px] font-semibold text-dime-orange-700">Upload</Text>
+                </View>
+              )}
+            </Pressable>
+            <View className="flex-1 justify-center">
+              <Text className="text-[13px] font-semibold text-dime-ink">{data.logoUrl ? "Logo uploaded" : "Add your logo"}</Text>
+              <Text className="mt-0.5 text-[11px] text-dime-ink-3">
+                {data.logoUrl
+                  ? "Saved to your restaurant. Appears on every menu and across DIME."
+                  : "PNG with transparency works best. Will be used everywhere."}
+              </Text>
+              <View className="mt-2 flex-row gap-2">
+                <Pressable
+                  onPress={uploadLogo}
+                  disabled={uploadingLogo}
+                  className="rounded-full border border-dime-border px-3 py-1"
+                >
+                  <Text className="text-[11px] font-semibold text-dime-orange-600">{uploadingLogo ? "Uploading..." : data.logoUrl ? "Replace" : "Upload"}</Text>
+                </Pressable>
+                {data.logoUrl ? (
+                  <Pressable onPress={removeLogo} className="rounded-full border border-dime-border px-3 py-1">
+                    <Text className="text-[11px] font-semibold text-dime-danger">Remove</Text>
+                  </Pressable>
+                ) : null}
+                <Pressable
+                  onPress={() => patchStyle({ showLogo: !style.showLogo })}
+                  className={`rounded-full border px-3 py-1 ${style.showLogo ? "border-dime-orange-500 bg-dime-orange-50" : "border-dime-border"}`}
+                >
+                  <Text className={`text-[11px] font-semibold ${style.showLogo ? "text-dime-orange-700" : "text-dime-ink-2"}`}>
+                    {style.showLogo ? "Showing on this menu" : "Hidden on this menu"}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
           </View>
         </View>
 
@@ -234,6 +318,9 @@ function Preview({ data, style }: { data: MenuData; style: MenuStyle }) {
   return (
     <View className="mx-4 mt-3 overflow-hidden rounded-2xl border border-dime-border" style={{ backgroundColor: style.paper }}>
       <View className="aspect-[210/297] p-5">
+        {style.showLogo && data.logoUrl ? (
+          <Image source={{ uri: data.logoUrl }} style={{ height: 32, width: 64, marginBottom: 8 }} resizeMode="contain" />
+        ) : null}
         <View className="self-start" style={{ backgroundColor: style.accent, height: 3, width: 32, borderRadius: 999 }} />
         <Text style={{ color: style.ink, fontSize: 22, fontWeight: "700", marginTop: 8, letterSpacing: -0.5 }} numberOfLines={1}>
           {data.restaurantName || "Your restaurant"}

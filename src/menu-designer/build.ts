@@ -1,7 +1,7 @@
 import { supabase, type Tables } from "@/lib/supabase";
 import type { MenuData } from "./types";
 
-type RestaurantRow = Pick<Tables<"restaurants">, "id" | "name" | "description">;
+type RestaurantRow = Pick<Tables<"restaurants">, "id" | "name" | "description" | "logo_url">;
 
 /**
  * Fetches the restaurant's live menu and assembles it into the shape
@@ -9,7 +9,7 @@ type RestaurantRow = Pick<Tables<"restaurants">, "id" | "name" | "description">;
  */
 export async function buildMenuData(restaurantId: string, override?: Partial<MenuData>): Promise<MenuData> {
   const [rRes, cRes, iRes] = await Promise.all([
-    supabase.from("restaurants").select("id, name, description").eq("id", restaurantId).maybeSingle(),
+    supabase.from("restaurants").select("id, name, description, logo_url").eq("id", restaurantId).maybeSingle(),
     supabase.from("menu_categories").select("*").eq("restaurant_id", restaurantId).eq("is_active", true).order("sort_order"),
     supabase.from("menu_items").select("*").eq("restaurant_id", restaurantId).eq("is_available", true).order("sort_order"),
   ]);
@@ -54,6 +54,7 @@ export async function buildMenuData(restaurantId: string, override?: Partial<Men
     restaurantName: override?.restaurantName ?? restaurant?.name ?? "Your Restaurant",
     tagline: override?.tagline ?? restaurant?.description ?? "",
     footnote: override?.footnote ?? "All prices in INR. Inclusive of all taxes unless mentioned.",
+    logoUrl: override?.logoUrl ?? restaurant?.logo_url ?? null,
     sections: override?.sections ?? sections,
   };
 }
