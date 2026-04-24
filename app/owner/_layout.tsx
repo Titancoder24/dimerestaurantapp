@@ -13,6 +13,7 @@ const nav: { href: string; label: string; icon: string }[] = [
   { href: "/owner/tables", label: "Tables", icon: "tablecells" },
   { href: "/owner/bookings", label: "Bookings", icon: "calendar" },
   { href: "/owner/menu", label: "Menu", icon: "fork.knife" },
+  { href: "/owner/menu-designer", label: "Designer", icon: "photo.fill" },
   { href: "/owner/inventory", label: "Inventory", icon: "shippingbox.fill" },
   { href: "/owner/analytics", label: "Analytics", icon: "chart.bar.fill" },
   { href: "/owner/staff", label: "Staff", icon: "person.fill" },
