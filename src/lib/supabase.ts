@@ -16,7 +16,11 @@ const storage = Platform.OS === "web"
   ? (typeof window !== "undefined" ? window.localStorage : undefined)
   : AsyncStorage;
 
-export const supabase: SupabaseClient<Database> = createClient<Database>(url, key, {
+// We intentionally use the untyped SupabaseClient here. Hand-maintaining a
+// fully-typed Database surface for 20 tables creates more friction than it
+// saves in this MVP. Row types are still strongly typed via Tables<> below
+// so .select() results are statically known where needed.
+export const supabase: SupabaseClient = createClient(url, key, {
   auth: {
     storage: storage as never,
     autoRefreshToken: true,
