@@ -267,6 +267,28 @@ export type Database = {
         Insert: Partial<Database["public"]["Tables"]["audit_log"]["Row"]> & { action: string; entity_type: string };
         Update: Partial<Database["public"]["Tables"]["audit_log"]["Row"]>;
       };
+      feature_flags: {
+        Row: {
+          id: string; key: string; description: string | null;
+          enabled: boolean; rollout_percent: number;
+          restaurant_ids: string[];
+          created_at: string; updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["feature_flags"]["Row"]> & { key: string };
+        Update: Partial<Database["public"]["Tables"]["feature_flags"]["Row"]>;
+      };
+      campaigns: {
+        Row: {
+          id: string; title: string; body: string; segment: Json;
+          cta_url: string | null; scheduled_for: string | null; sent_at: string | null;
+          recipients_count: number;
+          status: "draft" | "scheduled" | "sent" | "cancelled";
+          created_by: string | null;
+          created_at: string; updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["campaigns"]["Row"]> & { title: string; body: string };
+        Update: Partial<Database["public"]["Tables"]["campaigns"]["Row"]>;
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
