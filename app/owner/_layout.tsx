@@ -19,6 +19,7 @@ const nav: NavItem[] = [
   { href: "/owner/analytics", label: "Analytics", icon: "chart.bar.fill" },
   { href: "/owner/staff", label: "Staff", icon: "person.fill", ownerOnly: true },
   { href: "/owner/offers", label: "Offers", icon: "gift.fill" },
+  { href: "/owner/ads", label: "Ads", icon: "sparkles" },
   { href: "/owner/reviews", label: "Reviews", icon: "star.fill" },
   { href: "/owner/help", label: "Help", icon: "info.circle" },
   { href: "/owner/settings", label: "Settings", icon: "gear", ownerOnly: true },
