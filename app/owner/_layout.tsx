@@ -3,27 +3,30 @@ import { Pressable, Text, View, ScrollView, useWindowDimensions } from "react-na
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/store/auth";
 import { Icon, haptic } from "@/components/ui";
+import { MobileBottomNav } from "@/components/ui/MobileBottomNav";
 import { cn } from "@/lib/cn";
 import { useOwnedRestaurant } from "@/hooks/owner";
 
-type NavItem = { href: string; label: string; icon: string; ownerOnly?: boolean };
+type NavItem = { href: string; label: string; icon: string; group: string; ownerOnly?: boolean };
 const nav: NavItem[] = [
-  { href: "/owner/dashboard", label: "Dashboard", icon: "chart.line.uptrend.xyaxis" },
-  { href: "/owner/kitchen", label: "Kitchen", icon: "flame.fill" },
-  { href: "/owner/orders", label: "Orders", icon: "bag.fill" },
-  { href: "/owner/tables", label: "Tables", icon: "tablecells" },
-  { href: "/owner/bookings", label: "Bookings", icon: "calendar" },
-  { href: "/owner/menu", label: "Menu", icon: "fork.knife" },
-  { href: "/owner/menu-designer", label: "Designer", icon: "photo.fill" },
-  { href: "/owner/inventory", label: "Inventory", icon: "shippingbox.fill" },
-  { href: "/owner/analytics", label: "Analytics", icon: "chart.bar.fill" },
-  { href: "/owner/staff", label: "Staff", icon: "person.fill", ownerOnly: true },
-  { href: "/owner/offers", label: "Offers", icon: "gift.fill" },
-  { href: "/owner/ads", label: "Ads", icon: "sparkles" },
-  { href: "/owner/reviews", label: "Reviews", icon: "star.fill" },
-  { href: "/owner/help", label: "Help", icon: "info.circle" },
-  { href: "/owner/settings", label: "Settings", icon: "gear", ownerOnly: true },
+  { href: "/owner/dashboard", label: "Dashboard", icon: "chart.line.uptrend.xyaxis", group: "Operations" },
+  { href: "/owner/kitchen", label: "Kitchen", icon: "flame.fill", group: "Operations" },
+  { href: "/owner/orders", label: "Orders", icon: "bag.fill", group: "Operations" },
+  { href: "/owner/tables", label: "Tables", icon: "tablecells", group: "Operations" },
+  { href: "/owner/bookings", label: "Bookings", icon: "calendar", group: "Operations" },
+  { href: "/owner/menu", label: "Menu", icon: "fork.knife", group: "Catalogue" },
+  { href: "/owner/menu-designer", label: "Designer", icon: "photo.fill", group: "Catalogue" },
+  { href: "/owner/inventory", label: "Inventory", icon: "shippingbox.fill", group: "Catalogue" },
+  { href: "/owner/analytics", label: "Analytics", icon: "chart.bar.fill", group: "Insights" },
+  { href: "/owner/staff", label: "Staff", icon: "person.fill", group: "Team", ownerOnly: true },
+  { href: "/owner/offers", label: "Offers", icon: "gift.fill", group: "Marketing" },
+  { href: "/owner/ads", label: "Ads", icon: "sparkles", group: "Marketing" },
+  { href: "/owner/reviews", label: "Reviews", icon: "star.fill", group: "Marketing" },
+  { href: "/owner/help", label: "Help", icon: "info.circle", group: "Support" },
+  { href: "/owner/settings", label: "Settings", icon: "gear", group: "Support", ownerOnly: true },
 ];
+
+const ownerPrimaryTabs = ["/owner/dashboard", "/owner/kitchen", "/owner/orders", "/owner/tables"];
 
 export default function OwnerLayout() {
   const session = useAuth((s) => s.session);
@@ -81,26 +84,7 @@ export default function OwnerLayout() {
         <View className="flex-1">
           <Slot />
           {!wideScreen ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              className="border-t border-dime-border bg-white"
-              contentContainerStyle={{ paddingHorizontal: 8, paddingVertical: 8, gap: 4 }}
-            >
-              {visibleNav.map((n) => {
-                const active = pathname.startsWith(n.href);
-                return (
-                  <Pressable
-                    key={n.href}
-                    onPress={() => { haptic.light(); router.push(n.href as never); }}
-                    className={cn("flex-row items-center gap-1 rounded-full px-3 py-2", active ? "bg-dime-orange-50" : "bg-transparent")}
-                  >
-                    <Icon name={n.icon} size={14} color={active ? "#FC8019" : "#8E8E93"} />
-                    <Text className={cn("text-[12px]", active ? "font-semibold text-dime-orange-700" : "text-dime-ink-2")}>{n.label}</Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
+            <MobileBottomNav items={visibleNav} primary={ownerPrimaryTabs} />
           ) : null}
         </View>
       </View>
