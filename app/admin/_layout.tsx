@@ -22,6 +22,7 @@ const nav: NavItem[] = [
   { href: "/admin/users", label: "Customers", icon: "person.fill", group: "Platform", permission: "manage_users" },
   { href: "/admin/support", label: "Support", icon: "tray.fill", group: "Platform" },
   // Marketing & Engineering
+  { href: "/admin/ads", label: "Ads pipeline", icon: "sparkles", group: "Marketing", permission: "manage_campaigns" },
   { href: "/admin/campaigns", label: "Campaigns", icon: "gift.fill", group: "Marketing", permission: "manage_campaigns" },
   { href: "/admin/content", label: "Content", icon: "photo.fill", group: "Marketing", permission: "manage_content" },
   { href: "/admin/flags", label: "Feature Flags", icon: "sparkles", group: "Engineering", permission: "manage_flags" },

@@ -6,6 +6,7 @@ import { useAuth } from "@/store/auth";
 import { useRestaurants, useBanners, useCollections, useActiveOffers, useMyOrders } from "@/hooks/queries";
 import { useUnreadNotificationCount } from "@/hooks/useNotificationListener";
 import { RestaurantCard } from "@/components/restaurant/RestaurantCard";
+import { LiveAdsRail } from "@/components/poster/LiveAdsRail";
 import { greeting, rupees } from "@/lib/format";
 import { cn } from "@/lib/cn";
 
@@ -171,6 +172,15 @@ export default function Home() {
           />
         </View>
       ) : null}
+
+      {/* Sponsored ads */}
+      <View className="mt-6">
+        <View className="mb-3 flex-row items-center justify-between px-4">
+          <Text className="text-[20px] font-semibold text-dime-ink">Spotlight</Text>
+          <Text className="text-[10px] uppercase tracking-widest text-dime-ink-3">Sponsored</Text>
+        </View>
+        <LiveAdsRail placement="home_banner" limit={6} />
+      </View>
 
       {/* Food Mood */}
       <View className="mt-6">
