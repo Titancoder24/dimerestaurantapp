@@ -289,6 +289,35 @@ export type Database = {
         Insert: Partial<Database["public"]["Tables"]["campaigns"]["Row"]> & { title: string; body: string };
         Update: Partial<Database["public"]["Tables"]["campaigns"]["Row"]>;
       };
+      ads: {
+        Row: {
+          id: string;
+          restaurant_id: string | null;
+          created_by: string | null;
+          template_id: string;
+          title: string;
+          subtitle: string | null;
+          body: string | null;
+          cta_text: string | null;
+          cta_link: string | null;
+          image_url: string | null;
+          design_json: Json;
+          placement: "home_banner" | "home_featured" | "discover_inline" | "restaurant_top";
+          daily_budget: number;
+          duration_days: number;
+          total_cost: number;
+          start_date: string | null;
+          end_date: string | null;
+          status: "draft" | "pending_review" | "approved" | "active" | "paused" | "completed" | "rejected";
+          admin_notes: string | null;
+          impressions: number;
+          clicks: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["ads"]["Row"]> & { template_id: string; title: string; daily_budget: number };
+        Update: Partial<Database["public"]["Tables"]["ads"]["Row"]>;
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
