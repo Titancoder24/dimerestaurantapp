@@ -10,6 +10,7 @@ const nav: { href: string; label: string; icon: string }[] = [
   { href: "/admin/restaurants", label: "Restaurants", icon: "building.2.fill" },
   { href: "/admin/users", label: "Users", icon: "person.fill" },
   { href: "/admin/orders", label: "Orders", icon: "bag.fill" },
+  { href: "/admin/bookings", label: "Bookings", icon: "calendar" },
   { href: "/admin/support", label: "Support", icon: "tray.fill" },
   { href: "/admin/content", label: "Content", icon: "photo.fill" },
 ];

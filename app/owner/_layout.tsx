@@ -6,7 +6,8 @@ import { Icon, haptic } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useOwnedRestaurant } from "@/hooks/owner";
 
-const nav: { href: string; label: string; icon: string }[] = [
+type NavItem = { href: string; label: string; icon: string; ownerOnly?: boolean };
+const nav: NavItem[] = [
   { href: "/owner/dashboard", label: "Dashboard", icon: "chart.line.uptrend.xyaxis" },
   { href: "/owner/kitchen", label: "Kitchen", icon: "flame.fill" },
   { href: "/owner/orders", label: "Orders", icon: "bag.fill" },
@@ -16,10 +17,11 @@ const nav: { href: string; label: string; icon: string }[] = [
   { href: "/owner/menu-designer", label: "Designer", icon: "photo.fill" },
   { href: "/owner/inventory", label: "Inventory", icon: "shippingbox.fill" },
   { href: "/owner/analytics", label: "Analytics", icon: "chart.bar.fill" },
-  { href: "/owner/staff", label: "Staff", icon: "person.fill" },
+  { href: "/owner/staff", label: "Staff", icon: "person.fill", ownerOnly: true },
   { href: "/owner/offers", label: "Offers", icon: "gift.fill" },
   { href: "/owner/reviews", label: "Reviews", icon: "star.fill" },
-  { href: "/owner/settings", label: "Settings", icon: "gear" },
+  { href: "/owner/help", label: "Help", icon: "info.circle" },
+  { href: "/owner/settings", label: "Settings", icon: "gear", ownerOnly: true },
 ];
 
 export default function OwnerLayout() {
@@ -40,18 +42,26 @@ export default function OwnerLayout() {
     return <Redirect href="/owner/onboarding" />;
   }
 
+  const isManager = profile?.role === "manager";
+  const visibleNav = isManager ? nav.filter((n) => !n.ownerOnly) : nav;
+
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-dime-bg-grouped">
       <View className="flex-1 flex-row">
         {wideScreen ? (
           <View className="w-[240px] border-r border-dime-border bg-white px-3 py-4">
             <View className="mb-5 px-2">
-              <Text className="text-[11px] font-bold uppercase tracking-widest text-dime-ink-3">Restaurant</Text>
+              <Text className="text-[11px] font-bold uppercase tracking-widest text-dime-ink-3">{isManager ? "Manager view" : "Restaurant"}</Text>
               <Text className="mt-1 text-[16px] font-semibold text-dime-ink" numberOfLines={1}>{restaurant?.name ?? "Owner"}</Text>
               <Text className="text-[11px] text-dime-ink-3">{restaurant?.city}</Text>
+              {isManager ? (
+                <View className="mt-2 self-start rounded-full bg-blue-50 px-2 py-0.5">
+                  <Text className="text-[10px] font-bold uppercase tracking-wider text-blue-700">Manager</Text>
+                </View>
+              ) : null}
             </View>
             <ScrollView>
-              {nav.map((n) => {
+              {visibleNav.map((n) => {
                 const active = pathname.startsWith(n.href);
                 return (
                   <Pressable
@@ -76,7 +86,7 @@ export default function OwnerLayout() {
               className="border-t border-dime-border bg-white"
               contentContainerStyle={{ paddingHorizontal: 8, paddingVertical: 8, gap: 4 }}
             >
-              {nav.map((n) => {
+              {visibleNav.map((n) => {
                 const active = pathname.startsWith(n.href);
                 return (
                   <Pressable

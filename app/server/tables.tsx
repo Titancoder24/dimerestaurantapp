@@ -7,6 +7,7 @@ import { useTables } from "@/hooks/queries";
 import { supabase } from "@/lib/supabase";
 import { useQueryClient } from "@tanstack/react-query";
 import { ReadyFeed } from "@/components/server/ReadyFeed";
+import { UpcomingArrivalsFeed } from "@/components/server/UpcomingArrivalsFeed";
 
 export default function ServerTables() {
   const router = useRouter();
@@ -60,6 +61,8 @@ export default function ServerTables() {
         <Tile color="bg-emerald-500" label="Available" value={available.length} />
         <Tile color="bg-amber-500" label="Reserved" value={reserved.length} />
       </View>
+
+      <UpcomingArrivalsFeed restaurantId={staff.restaurantId} />
 
       <ReadyFeed
         restaurantId={staff.restaurantId}

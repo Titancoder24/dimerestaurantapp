@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { FlatList, Pressable, Text, View } from "react-native";
+import { useRouter } from "expo-router";
 import { Avatar, Badge, Chip, Header, Icon, Input, Screen } from "@/components/ui";
 import { useAdminUsers } from "@/hooks/admin";
 import { supabase } from "@/lib/supabase";
@@ -9,6 +10,7 @@ const roleFilters = ["all", "customer", "owner", "manager", "super_admin"] as co
 
 export default function AdminUsers() {
   const qc = useQueryClient();
+  const router = useRouter();
   const { data } = useAdminUsers();
   const [filter, setFilter] = useState<(typeof roleFilters)[number]>("all");
   const [q, setQ] = useState("");
@@ -45,7 +47,10 @@ export default function AdminUsers() {
         keyExtractor={(u) => u.id}
         contentContainerStyle={{ padding: 16, gap: 6, paddingBottom: 120 }}
         renderItem={({ item: u }) => (
-          <View className="flex-row items-center gap-3 rounded-xl border border-dime-border bg-white p-3">
+          <Pressable
+            onPress={() => router.push({ pathname: "/admin/users/[id]", params: { id: u.id } })}
+            className="flex-row items-center gap-3 rounded-xl border border-dime-border bg-white p-3"
+          >
             <Avatar name={u.name ?? u.email} size={36} />
             <View className="flex-1">
               <Text className="text-[14px] font-semibold text-dime-ink">{u.name ?? "—"}</Text>
@@ -56,10 +61,13 @@ export default function AdminUsers() {
                 <Badge tone={u.loyalty_tier === "diamond" ? "blue" : u.loyalty_tier === "platinum" ? "gray" : u.loyalty_tier === "gold" ? "gold" : "gray"} label={u.loyalty_tier} />
               </View>
             </View>
-            <Pressable onPress={() => toggleActive(u.id, u.is_active)} className={`rounded-full px-3 py-1.5 ${u.is_active ? "bg-emerald-50" : "bg-red-50"}`}>
+            <Pressable
+              onPress={(e) => { e.stopPropagation(); toggleActive(u.id, u.is_active); }}
+              className={`rounded-full px-3 py-1.5 ${u.is_active ? "bg-emerald-50" : "bg-red-50"}`}
+            >
               <Text className={`text-[11px] font-semibold ${u.is_active ? "text-emerald-700" : "text-dime-danger"}`}>{u.is_active ? "Active" : "Disabled"}</Text>
             </Pressable>
-          </View>
+          </Pressable>
         )}
       />
     </Screen>
