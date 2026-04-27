@@ -1,0 +1,86 @@
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: ["./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
+  presets: [require("nativewind/preset")],
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        dime: {
+          primary: {
+            50: "#FFF5F0",
+            100: "#FFE6D5",
+            200: "#FFCBA4",
+            300: "#FFAB72",
+            400: "#FF8C42",
+            500: "#FF6B2C",
+            600: "#E85A1E",
+            700: "#C44A18",
+            800: "#9A3A13",
+            900: "#6B280D",
+          },
+          ink: {
+            DEFAULT: "#0F0F0F",
+            2: "#404040",
+            3: "#8A8A8A",
+            4: "#BFBFBF",
+            muted: "#6B7280",
+          },
+          bg: {
+            DEFAULT: "#FFFFFF",
+            2: "#FAFAFA",
+            card: "#FFFFFF",
+            grouped: "#F5F5F0",
+            warm: "#FAF8F5",
+            overlay: "rgba(0,0,0,0.6)",
+          },
+          border: {
+            DEFAULT: "rgba(0,0,0,0.06)",
+            strong: "rgba(0,0,0,0.12)",
+          },
+          gold: {
+            DEFAULT: "#C9A96E",
+            light: "#E8D5B0",
+            dark: "#8B6D3F",
+          },
+          success: "#16A34A",
+          warn: "#D97706",
+          danger: "#DC2626",
+          info: "#2563EB",
+        },
+      },
+      fontFamily: {
+        display: ["DM Sans", "System"],
+        sans: ["Inter", "System"],
+        mono: ["SF Mono", "monospace"],
+      },
+      fontSize: {
+        "hero": ["40px", { lineHeight: "44px", fontWeight: "700", letterSpacing: "-0.02em" }],
+        "display": ["32px", { lineHeight: "36px", fontWeight: "700", letterSpacing: "-0.02em" }],
+        "title-1": ["24px", { lineHeight: "30px", fontWeight: "700", letterSpacing: "-0.01em" }],
+        "title-2": ["20px", { lineHeight: "26px", fontWeight: "600", letterSpacing: "-0.01em" }],
+        "title-3": ["17px", { lineHeight: "22px", fontWeight: "600" }],
+        "body": ["15px", { lineHeight: "22px", fontWeight: "400" }],
+        "body-sm": ["14px", { lineHeight: "20px", fontWeight: "400" }],
+        "callout": ["15px", { lineHeight: "20px", fontWeight: "500" }],
+        "footnote": ["13px", { lineHeight: "18px", fontWeight: "400" }],
+        "caption": ["11px", { lineHeight: "14px", fontWeight: "600", letterSpacing: "0.06em" }],
+        "overline": ["10px", { lineHeight: "12px", fontWeight: "700", letterSpacing: "0.1em" }],
+      },
+      borderRadius: {
+        xs: "6px",
+        sm: "10px",
+        md: "14px",
+        lg: "18px",
+        xl: "22px",
+        "2xl": "28px",
+      },
+      boxShadow: {
+        card: "0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03)",
+        elevated: "0 4px 24px rgba(0,0,0,0.08)",
+        float: "0 8px 40px rgba(0,0,0,0.12)",
+      },
+    },
+  },
+  plugins: [],
+};
