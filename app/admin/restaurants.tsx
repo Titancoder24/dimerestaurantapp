@@ -1,0 +1,79 @@
+import { useState } from "react";
+import { Image, Pressable, Text, View, FlatList } from "react-native";
+import { Badge, Chip, Header, Icon, Screen, haptic } from "@/components/ui";
+import { useAdminRestaurants } from "@/hooks/admin";
+import { supabase } from "@/lib/supabase";
+import { useQueryClient } from "@tanstack/react-query";
+
+const statusFilters = ["all", "pending", "verified", "suspended", "banned"] as const;
+
+export default function AdminRestaurants() {
+  const qc = useQueryClient();
+  const { data } = useAdminRestaurants();
+  const [filter, setFilter] = useState<(typeof statusFilters)[number]>("all");
+
+  const filtered = (data ?? []).filter((r) => filter === "all" || r.status === filter);
+
+  async function setStatus(id: string, status: "verified" | "suspended" | "banned") {
+    await supabase.from("restaurants").update({ status }).eq("id", id);
+    qc.invalidateQueries({ queryKey: ["admin-restaurants"] });
+    haptic.success();
+  }
+
+  async function toggleFeatured(id: string, current: boolean) {
+    await supabase.from("restaurants").update({ featured: !current }).eq("id", id);
+    qc.invalidateQueries({ queryKey: ["admin-restaurants"] });
+  }
+
+  return (
+    <Screen scroll={false}>
+      <Header title="Restaurants" subtitle={`${filtered.length} of ${data?.length ?? 0}`} />
+      <View className="px-5">
+        <FlatList
+          horizontal
+          data={statusFilters}
+          keyExtractor={(s) => s}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 8 }}
+          renderItem={({ item }) => <Chip label={item} selected={filter === item} onPress={() => setFilter(item)} />}
+        />
+      </View>
+      <FlatList
+        data={filtered}
+        keyExtractor={(r) => r.id}
+        contentContainerStyle={{ padding: 20, gap: 10, paddingBottom: 120 }}
+        renderItem={({ item: r }) => (
+          <View className="flex-row gap-4 rounded-2xl bg-white p-4" style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 12, elevation: 2 }}>
+            <Image source={{ uri: r.cover_image_url ?? "" }} className="h-16 w-16 rounded-lg" />
+            <View className="flex-1">
+              <View className="flex-row items-center gap-2">
+                <Text className="flex-1 text-[14px] font-bold text-dime-ink">{r.name}</Text>
+                <Badge tone={r.status === "verified" ? "green" : r.status === "pending" ? "orange" : "red"} label={r.status} />
+              </View>
+              <Text className="text-[11px] text-dime-ink-3">{r.city} • {r.cuisines.join(", ")}</Text>
+
+              <View className="mt-2 flex-row gap-2">
+                {r.status === "pending" ? (
+                  <Pressable onPress={() => setStatus(r.id, "verified")} className="flex-1 items-center rounded-lg bg-emerald-500 py-1.5">
+                    <Text className="text-[12px] font-bold text-white">Approve</Text>
+                  </Pressable>
+                ) : null}
+                {r.status === "verified" ? (
+                  <Pressable onPress={() => setStatus(r.id, "suspended")} className="flex-1 items-center rounded-lg border border-amber-300 bg-white py-1.5">
+                    <Text className="text-[12px] font-bold text-amber-700">Suspend</Text>
+                  </Pressable>
+                ) : null}
+                <Pressable onPress={() => toggleFeatured(r.id, r.featured)} className={`flex-1 items-center rounded-lg py-1.5 ${r.featured ? "bg-dime-primary-500" : "bg-white"}`} style={r.featured ? undefined : { shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 }}>
+                  <Text className={`text-[12px] font-bold ${r.featured ? "text-white" : "text-dime-ink-2"}`}>{r.featured ? "Featured" : "Feature"}</Text>
+                </Pressable>
+                <Pressable onPress={() => setStatus(r.id, "banned")} className="flex-1 items-center rounded-lg border border-red-300 bg-white py-1.5">
+                  <Text className="text-[12px] font-bold text-dime-danger">Ban</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        )}
+      />
+    </Screen>
+  );
+}

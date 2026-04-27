@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --dime-primary: 255 107 44;
+    --dime-primary-50: 255 245 240;
+    --dime-primary-100: 255 230 213;
+    --dime-primary-500: 255 107 44;
+    --dime-primary-600: 232 90 30;
+    --dime-primary-700: 196 74 24;
+
+    --dime-ink: 15 15 15;
+    --dime-ink-2: 64 64 64;
+    --dime-ink-3: 138 138 138;
+
+    --dime-bg: 255 255 255;
+    --dime-bg-2: 250 250 250;
+    --dime-bg-warm: 250 248 245;
+    --dime-bg-grouped: 245 245 240;
+
+    --dime-gold: 201 169 110;
+    --dime-success: 22 163 74;
+    --dime-warn: 217 119 6;
+    --dime-danger: 220 38 38;
+  }
+
+  .dark {
+    --dime-primary: 255 140 66;
+    --dime-ink: 250 250 250;
+    --dime-ink-2: 200 200 205;
+    --dime-ink-3: 130 130 140;
+
+    --dime-bg: 10 10 10;
+    --dime-bg-2: 22 22 24;
+    --dime-bg-warm: 18 16 14;
+    --dime-bg-grouped: 18 18 20;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+    font-family: "Inter", "DM Sans", -apple-system, BlinkMacSystemFont,
+      "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: rgb(var(--dime-bg));
+    color: rgb(var(--dime-ink));
+  }
+
+  /* Premium smooth scrolling */
+  * {
+    scroll-behavior: smooth;
+  }
+
+  /* Hide scrollbar on web for horizontal lists */
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}

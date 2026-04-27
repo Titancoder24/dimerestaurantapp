@@ -1,0 +1,76 @@
+import { useState } from "react";
+import { FlatList, Pressable, Text, View } from "react-native";
+import { useRouter } from "expo-router";
+import { Avatar, Badge, Chip, Header, Icon, Input, Screen } from "@/components/ui";
+import { useAdminUsers } from "@/hooks/admin";
+import { supabase } from "@/lib/supabase";
+import { useQueryClient } from "@tanstack/react-query";
+
+const roleFilters = ["all", "customer", "owner", "manager", "super_admin"] as const;
+
+export default function AdminUsers() {
+  const qc = useQueryClient();
+  const router = useRouter();
+  const { data } = useAdminUsers();
+  const [filter, setFilter] = useState<(typeof roleFilters)[number]>("all");
+  const [q, setQ] = useState("");
+
+  const filtered = (data ?? []).filter((u) => {
+    if (filter !== "all" && u.role !== filter) return false;
+    if (q && !(u.email + " " + (u.name ?? "")).toLowerCase().includes(q.toLowerCase())) return false;
+    return true;
+  });
+
+  async function toggleActive(id: string, current: boolean) {
+    await supabase.from("users").update({ is_active: !current }).eq("id", id);
+    qc.invalidateQueries({ queryKey: ["admin-users"] });
+  }
+
+  return (
+    <Screen scroll={false}>
+      <Header title="Users" subtitle={`${filtered.length} shown`} />
+      <View className="px-5">
+        <Input value={q} onChangeText={setQ} placeholder="Search name or email..." leading={<Icon name="magnifyingglass" size={16} color="#8A8A8A" />} />
+      </View>
+      <View className="mt-4 px-5">
+        <FlatList
+          horizontal
+          data={roleFilters}
+          keyExtractor={(r) => r}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 8 }}
+          renderItem={({ item }) => <Chip label={item} selected={filter === item} onPress={() => setFilter(item)} />}
+        />
+      </View>
+      <FlatList
+        data={filtered}
+        keyExtractor={(u) => u.id}
+        contentContainerStyle={{ padding: 20, gap: 8, paddingBottom: 120 }}
+        renderItem={({ item: u }) => (
+          <Pressable
+            onPress={() => router.push({ pathname: "/admin/users/[id]", params: { id: u.id } })}
+            className="flex-row items-center gap-4 rounded-2xl bg-white p-4"
+            style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 12, elevation: 2 }}
+          >
+            <Avatar name={u.name ?? u.email} size={36} />
+            <View className="flex-1">
+              <Text className="text-[14px] font-bold text-dime-ink">{u.name ?? "—"}</Text>
+              <Text className="text-[11px] text-dime-ink-3">{u.email}</Text>
+              <View className="mt-1 flex-row items-center gap-2">
+                <Badge tone={u.role === "super_admin" ? "gold" : u.role === "owner" ? "orange" : "gray"} label={u.role} />
+                <Badge tone="gray" label={`${u.loyalty_points} pts`} />
+                <Badge tone={u.loyalty_tier === "diamond" ? "blue" : u.loyalty_tier === "platinum" ? "gray" : u.loyalty_tier === "gold" ? "gold" : "gray"} label={u.loyalty_tier} />
+              </View>
+            </View>
+            <Pressable
+              onPress={(e) => { e.stopPropagation(); toggleActive(u.id, u.is_active); }}
+              className={`rounded-full px-3 py-1.5 ${u.is_active ? "bg-emerald-50" : "bg-red-50"}`}
+            >
+              <Text className={`text-[11px] font-bold ${u.is_active ? "text-emerald-700" : "text-dime-danger"}`}>{u.is_active ? "Active" : "Disabled"}</Text>
+            </Pressable>
+          </Pressable>
+        )}
+      />
+    </Screen>
+  );
+}
