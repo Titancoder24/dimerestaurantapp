@@ -1,10 +1,12 @@
-import { useMemo } from "react";
-import { FlatList, Image, Linking, Pressable, Text, View } from "react-native";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { FlatList, Image, Linking, Modal, Pressable, Text, View, useWindowDimensions } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Badge, Button, Icon, Screen, Avatar, haptic } from "@/components/ui";
 import { useRestaurant, useMenu, useActiveOffers, useReviews } from "@/hooks/queries";
 import { fullDate, rupees, timeAgo } from "@/lib/format";
+
+type TaggedPhoto = { url: string; label: string; sublabel?: string; category: "restaurant" | "menu" };
 
 export default function RestaurantDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -14,6 +16,41 @@ export default function RestaurantDetail() {
   const { data: menu } = useMenu(id);
   const { data: offers } = useActiveOffers(id);
   const { data: reviews } = useReviews(id);
+
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const [activePhoto, setActivePhoto] = useState(0);
+  const [lightboxIndex, setLightboxIndex] = useState(-1);
+  const lightboxRef = useRef<FlatList>(null);
+
+  const allPhotos = useMemo(() => {
+    if (!r) return [];
+    const photos: string[] = [];
+    if (r.cover_image_url) photos.push(r.cover_image_url);
+    if (r.gallery_images?.length) {
+      for (const url of r.gallery_images) {
+        if (url && !photos.includes(url)) photos.push(url);
+      }
+    }
+    return photos;
+  }, [r]);
+
+  const taggedPhotos = useMemo((): TaggedPhoto[] => {
+    const tagged: TaggedPhoto[] = [];
+    for (const url of allPhotos) {
+      tagged.push({ url, label: r?.name ?? "Restaurant", sublabel: "Restaurant photo", category: "restaurant" });
+    }
+    for (const item of menu?.items ?? []) {
+      for (const url of item.images) {
+        if (url) tagged.push({ url, label: item.name, sublabel: rupees(item.price), category: "menu" });
+      }
+    }
+    return tagged;
+  }, [allPhotos, menu, r]);
+
+  const openLightbox = useCallback((url: string) => {
+    const idx = taggedPhotos.findIndex((p) => p.url === url);
+    setLightboxIndex(idx >= 0 ? idx : 0);
+  }, [taggedPhotos]);
 
   const bestsellers = useMemo(() => menu?.items.filter((i) => i.is_bestseller).slice(0, 6) ?? [], [menu]);
 
@@ -33,10 +70,32 @@ export default function RestaurantDetail() {
   return (
     <Screen>
       <View className="relative">
-        <Image source={{ uri: r?.cover_image_url ?? "" }} className="h-72 w-full" resizeMode="cover" />
+        {allPhotos.length > 0 ? (
+          <FlatList
+            horizontal
+            pagingEnabled
+            data={allPhotos}
+            keyExtractor={(url, i) => `photo-${i}`}
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={(e) => {
+              const idx = Math.round(e.nativeEvent.contentOffset.x / screenWidth);
+              setActivePhoto(idx);
+            }}
+            renderItem={({ item: url }) => (
+              <Pressable onPress={() => openLightbox(url)}>
+                <Image source={{ uri: url }} style={{ width: screenWidth, height: 288 }} resizeMode="cover" />
+              </Pressable>
+            )}
+          />
+        ) : (
+          <View style={{ width: screenWidth, height: 288 }} className="items-center justify-center bg-dime-bg-2">
+            <Icon name="photo.fill" size={40} color="#BFBFBF" />
+          </View>
+        )}
         <LinearGradient
           colors={["rgba(0,0,0,0.4)", "transparent", "rgba(0,0,0,0.6)"]}
           className="absolute inset-0"
+          pointerEvents="none"
         />
         <View className="absolute inset-x-0 top-0 flex-row items-center justify-between px-5 pt-14">
           <Pressable
@@ -55,6 +114,16 @@ export default function RestaurantDetail() {
             </Pressable>
           </View>
         </View>
+        {allPhotos.length > 1 ? (
+          <View className="absolute bottom-4 left-0 right-0 flex-row items-center justify-center gap-1.5">
+            {allPhotos.map((_, i) => (
+              <View key={i} className={`h-2 rounded-full ${activePhoto === i ? "w-5 bg-white" : "w-2 bg-white/50"}`} />
+            ))}
+            <View className="absolute right-5 rounded-full bg-black/40 px-2.5 py-1">
+              <Text className="text-[11px] font-bold text-white">{activePhoto + 1} / {allPhotos.length}</Text>
+            </View>
+          </View>
+        ) : null}
       </View>
 
       <View className="-mt-8 rounded-t-[28px] bg-white px-5 pt-6">
@@ -131,6 +200,26 @@ export default function RestaurantDetail() {
         </View>
       ) : null}
 
+      {allPhotos.length > 1 ? (
+        <View className="mt-6 px-5">
+          <Text className="text-[11px] font-bold uppercase text-dime-ink-4" style={{ letterSpacing: 1.5 }}>
+            Photos ({allPhotos.length})
+          </Text>
+          <FlatList
+            horizontal
+            data={allPhotos}
+            keyExtractor={(url, i) => `gallery-${i}`}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 8, paddingTop: 12 }}
+            renderItem={({ item: url }) => (
+              <Pressable onPress={() => openLightbox(url)}>
+                <Image source={{ uri: url }} className="h-32 w-44 rounded-2xl" resizeMode="cover" />
+              </Pressable>
+            )}
+          />
+        </View>
+      ) : null}
+
       {offers && offers.length > 0 ? (
         <View className="mt-6">
           <Text className="mb-3 px-5 text-[11px] font-bold uppercase text-dime-ink-4" style={{ letterSpacing: 1.5 }}>
@@ -169,13 +258,15 @@ export default function RestaurantDetail() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ gap: 12, paddingTop: 12 }}
             renderItem={({ item }) => (
-              <View className="w-44 overflow-hidden rounded-2xl bg-white" style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 2 }}>
-                <Image source={{ uri: item.images[0] ?? "" }} className="h-28 w-44" resizeMode="cover" />
-                <View className="p-3">
-                  <Text numberOfLines={1} className="text-[14px] font-bold text-dime-ink">{item.name}</Text>
-                  <Text className="mt-0.5 text-[13px] font-semibold text-dime-ink-2">{rupees(item.price)}</Text>
+              <Pressable onPress={() => item.images[0] && openLightbox(item.images[0])}>
+                <View className="w-44 overflow-hidden rounded-2xl bg-white" style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 2 }}>
+                  <Image source={{ uri: item.images[0] ?? "" }} className="h-28 w-44" resizeMode="cover" />
+                  <View className="p-3">
+                    <Text numberOfLines={1} className="text-[14px] font-bold text-dime-ink">{item.name}</Text>
+                    <Text className="mt-0.5 text-[13px] font-semibold text-dime-ink-2">{rupees(item.price)}</Text>
+                  </View>
                 </View>
-              </View>
+              </Pressable>
             )}
           />
         </View>
@@ -232,6 +323,69 @@ export default function RestaurantDetail() {
         <Text className="mt-2 text-[12px] text-dime-ink-3">FSSAI: {r?.fssai_number}</Text>
         <Text className="text-[12px] text-dime-ink-3">GST: {r?.gst_number}</Text>
       </View>
+
+      <Modal visible={lightboxIndex >= 0} transparent animationType="fade" onRequestClose={() => setLightboxIndex(-1)}>
+        <View className="flex-1 bg-black">
+          <FlatList
+            ref={lightboxRef}
+            horizontal
+            pagingEnabled
+            data={taggedPhotos}
+            keyExtractor={(p, i) => `lb-${i}`}
+            showsHorizontalScrollIndicator={false}
+            initialScrollIndex={lightboxIndex >= 0 ? lightboxIndex : 0}
+            getItemLayout={(_, i) => ({ length: screenWidth, offset: screenWidth * i, index: i })}
+            onMomentumScrollEnd={(e) => {
+              const idx = Math.round(e.nativeEvent.contentOffset.x / screenWidth);
+              setLightboxIndex(idx);
+            }}
+            renderItem={({ item: photo }) => (
+              <View style={{ width: screenWidth, height: screenHeight }} className="items-center justify-center">
+                <Image source={{ uri: photo.url }} style={{ width: screenWidth, height: screenHeight * 0.7 }} resizeMode="contain" />
+              </View>
+            )}
+          />
+
+          <View className="absolute inset-x-0 top-0 pt-14 px-5">
+            <View className="flex-row items-center justify-between">
+              <Pressable
+                onPress={() => setLightboxIndex(-1)}
+                className="h-11 w-11 items-center justify-center rounded-full bg-white/15"
+              >
+                <Icon name="xmark" size={18} color="#fff" />
+              </Pressable>
+              <View className="rounded-full bg-white/15 px-3 py-1.5">
+                <Text className="text-[13px] font-bold text-white">
+                  {lightboxIndex >= 0 ? lightboxIndex + 1 : 1} / {taggedPhotos.length}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {lightboxIndex >= 0 && taggedPhotos[lightboxIndex] ? (
+            <View className="absolute inset-x-0 bottom-0 pb-12 px-5">
+              <LinearGradient
+                colors={["transparent", "rgba(0,0,0,0.8)"]}
+                className="absolute inset-0"
+                pointerEvents="none"
+              />
+              <View className="flex-row items-center gap-2 mb-2">
+                <View className={`rounded-full px-2.5 py-1 ${taggedPhotos[lightboxIndex].category === "menu" ? "bg-dime-primary-500" : "bg-white/20"}`}>
+                  <Text className="text-[10px] font-bold uppercase text-white" style={{ letterSpacing: 1 }}>
+                    {taggedPhotos[lightboxIndex].category === "menu" ? "Menu item" : "Restaurant"}
+                  </Text>
+                </View>
+              </View>
+              <Text className="text-[20px] font-bold text-white" style={{ letterSpacing: -0.5 }}>
+                {taggedPhotos[lightboxIndex].label}
+              </Text>
+              {taggedPhotos[lightboxIndex].sublabel ? (
+                <Text className="mt-1 text-[14px] text-white/70">{taggedPhotos[lightboxIndex].sublabel}</Text>
+              ) : null}
+            </View>
+          ) : null}
+        </View>
+      </Modal>
     </Screen>
   );
 }

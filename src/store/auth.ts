@@ -78,11 +78,18 @@ export async function bootstrapAuth(): Promise<void> {
   }
   useAuth.setState({ hydrated: true });
 
-  supabase.auth.onAuthStateChange(async (_event, session) => {
+  supabase.auth.onAuthStateChange(async (event, session) => {
     const prev = useAuth.getState().session;
     if (prev?.access_token === session?.access_token) return;
     useAuth.getState().setSession(session);
-    if (session) await useAuth.getState().refreshProfile();
-    else useAuth.getState().setProfile(null);
+    if (session) {
+      if (event === "SIGNED_IN") {
+        // Small delay on sign-in to let DB triggers finish creating the user row
+        await new Promise((r) => setTimeout(r, 500));
+      }
+      await useAuth.getState().refreshProfile();
+    } else {
+      useAuth.getState().setProfile(null);
+    }
   });
 }

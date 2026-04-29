@@ -23,7 +23,7 @@ type OrderItemStatus = "pending" | "preparing" | "ready" | "served";
 type LoyaltyTxType = "earned_order" | "earned_review" | "earned_referral" | "earned_bonus" | "redeemed" | "expired" | "adjusted_admin";
 type DiscountType = "percentage" | "flat" | "bogo" | "free_item";
 type TargetAudience = "all" | "new_users" | "tier_gold" | "tier_platinum" | "tier_diamond";
-type NotificationType = "order_update" | "booking_update" | "offer" | "loyalty" | "system";
+type NotificationType = "order_update" | "booking_update" | "offer" | "loyalty" | "system" | "booking_request" | "booking_confirmed" | "booking_rejected" | "restaurant_approved" | "restaurant_rejected";
 type InventoryUnit = "kg" | "g" | "liter" | "ml" | "piece" | "dozen" | "packet";
 type ExpenseCategory = "rent" | "salaries" | "utilities" | "ingredients" | "maintenance" | "marketing" | "licenses" | "misc";
 type RecurringFreq = "monthly" | "weekly" | "yearly";
@@ -56,6 +56,9 @@ export type Database = {
           address: string | null; city: string | null; lat: number | null; lng: number | null;
           phone: string | null; email: string | null; hours: Json; amenities: string[];
           fssai_number: string | null; gst_number: string | null;
+          fssai_certificate_url: string | null; pan_number: string | null;
+          bank_account_name: string | null; bank_account_number: string | null; bank_ifsc: string | null;
+          rejection_reason: string | null;
           tax_rate: number; service_charge_rate: number;
           cover_image_url: string | null; gallery_images: string[];
           logo_url: string | null;
@@ -115,6 +118,8 @@ export type Database = {
           date: string; time: string; guests: number; seating_preference: SeatingPref;
           occasion: string | null; special_requests: string | null;
           status: BookingStatus; source: BookingSource; qr_code: string | null;
+          responded_by: string | null; response_note: string | null;
+          pre_order: Json | null;
           created_at: string; updated_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["bookings"]["Row"]> & { restaurant_id: string; date: string; time: string; guests: number };

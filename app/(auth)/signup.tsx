@@ -33,6 +33,14 @@ export default function SignupScreen() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  async function waitForProfile(retries = 8): Promise<void> {
+    for (let i = 0; i < retries; i++) {
+      await refreshProfile();
+      if (useAuth.getState().profile) return;
+      await new Promise((r) => setTimeout(r, 400));
+    }
+  }
+
   async function onSubmit() {
     if (name.trim().length < 2) return toast.error("Enter your name");
     if (!email.includes("@")) return toast.error("Enter a valid email");
@@ -41,15 +49,17 @@ export default function SignupScreen() {
     try {
       await signUp(email.trim(), password, name.trim(), role === "owner" ? "owner" : undefined);
 
-      const session = useAuth.getState().session;
+      let session = useAuth.getState().session;
       if (!session) {
         const { error } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password,
         });
         if (error) throw error;
-        await refreshProfile();
+        session = useAuth.getState().session;
       }
+
+      await waitForProfile();
 
       if (role === "owner") {
         const uid = useAuth.getState().authUser?.id;

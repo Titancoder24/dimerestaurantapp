@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { FlatList, Image, Pressable, Switch, Text, View } from "react-native";
-import { actionSheet, confirm } from "@/lib/confirm";
+import { FlatList, Image, Pressable, ScrollView, Switch, Text, View } from "react-native";
+import { confirm } from "@/lib/confirm";
 import { Badge, Button, Chip, ChipRow, Header, Icon, Input, Screen, Sheet, VegDot, haptic } from "@/components/ui";
 import { useOwnedRestaurant } from "@/hooks/owner";
 import { useMenu } from "@/hooks/queries";
@@ -9,9 +9,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { rupees } from "@/lib/format";
 import { useToast } from "@/store/toast";
 import { pickAndUpload } from "@/lib/upload";
-import { removeBackground, bgRemoveSupported } from "@/lib/bg-remove";
-
-const allergenPool = ["Peanuts", "Tree nuts", "Dairy", "Gluten", "Shellfish", "Egg", "Soy", "Sesame"];
 
 export default function OwnerMenu() {
   const { data: restaurant } = useOwnedRestaurant();
@@ -167,18 +164,12 @@ function ItemEditor({
   const toast = useToast();
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [removingBg, setRemovingBg] = useState(false);
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [isVeg, setIsVeg] = useState(true);
-  const [isBestseller, setBestseller] = useState(false);
-  const [spice, setSpice] = useState(0);
-  const [prepTime, setPrepTime] = useState("15");
-  const [calories, setCalories] = useState("");
-  const [allergens, setAllergens] = useState<string[]>([]);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   const visible = !!item;
@@ -189,43 +180,17 @@ function ItemEditor({
     setPrice(item?.price != null ? String(item.price) : "");
     setCategoryId(item?.category_id ?? categories[0]?.id ?? null);
     setIsVeg(item?.is_veg ?? true);
-    setBestseller(item?.is_bestseller ?? false);
-    setSpice(item?.spice_level ?? 0);
-    setPrepTime(String(item?.prep_time_minutes ?? 15));
-    setCalories(item?.calories != null ? String(item.calories) : "");
-    setAllergens(item?.allergens ?? []);
     setImageUrl(item?.images?.[0] ?? null);
   });
 
-  function chooseImageSource() {
-    if (!restaurantId) return;
-    actionSheet("Add photo", [
-      { label: "Take photo", onPress: () => uploadImage("camera") },
-      { label: "Choose from gallery", onPress: () => uploadImage("gallery") },
-    ]);
-  }
-
-  async function uploadImage(source: "gallery" | "camera") {
+  async function pickPhoto() {
     if (!restaurantId) return;
     setUploading(true);
     try {
-      const url = await pickAndUpload({ bucket: "menu-media", prefix: restaurantId, aspect: [4, 3], source });
+      const url = await pickAndUpload({ bucket: "menu-media", prefix: restaurantId, aspect: [4, 3], source: "gallery" });
       if (url) setImageUrl(url);
     } catch (e) { toast.error("Upload failed", (e as Error).message); }
     finally { setUploading(false); }
-  }
-
-  async function handleRemoveBg() {
-    if (!imageUrl || !restaurantId) return;
-    setRemovingBg(true);
-    try {
-      const newUrl = await removeBackground(imageUrl, "menu-media", restaurantId);
-      setImageUrl(newUrl);
-      haptic.success();
-      toast.success("Background removed");
-    } catch (e) {
-      toast.error("Could not remove background", (e as Error).message);
-    } finally { setRemovingBg(false); }
   }
 
   async function save() {
@@ -242,11 +207,6 @@ function ItemEditor({
         description: description || null,
         price: Number(price),
         is_veg: isVeg,
-        is_bestseller: isBestseller,
-        spice_level: spice,
-        prep_time_minutes: Number(prepTime) || 15,
-        calories: calories ? Number(calories) : null,
-        allergens,
         images: imageUrl ? [imageUrl] : [],
       };
       if (item?.id) {
@@ -266,55 +226,35 @@ function ItemEditor({
 
   return (
     <Sheet visible={visible} onClose={onClose} maxHeight="92%">
-      <Sheet.Body>
+      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 12, paddingBottom: 40 }}>
         <Text className="text-[18px] font-bold text-dime-ink" style={{ letterSpacing: -0.5 }}>{item?.id ? "Edit item" : "New item"}</Text>
 
-        <Pressable onPress={chooseImageSource} disabled={uploading || removingBg} className="mt-4 aspect-[4/3] items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-dime-primary-300 bg-dime-primary-50">
-          {imageUrl ? (
-            <Image source={{ uri: imageUrl }} className="h-full w-full" resizeMode="contain" style={{ backgroundColor: "transparent" }} />
-          ) : (
-            <View className="items-center">
-              <Icon name="camera.fill" size={28} color="#FF6B2C" />
-              <Text className="mt-2 text-[13px] font-bold text-dime-primary-700">
-                {uploading ? "Uploading..." : "Take photo or choose from gallery"}
-              </Text>
-            </View>
-          )}
-        </Pressable>
-
         {imageUrl ? (
-          <View className="mt-2 flex-row gap-2">
+          <View className="mt-4">
+            <Image source={{ uri: imageUrl }} className="h-44 w-full rounded-2xl" resizeMode="cover" />
             <Pressable
-              onPress={chooseImageSource}
-              disabled={uploading || removingBg}
-              className="flex-1 flex-row items-center justify-center gap-1.5 rounded-xl bg-dime-bg-2 py-2.5"
+              onPress={pickPhoto}
+              disabled={uploading}
+              className="mt-2 flex-row items-center justify-center gap-1.5 rounded-xl bg-dime-bg-2 py-2.5"
             >
               <Icon name="arrow.triangle.2.circlepath" size={12} color="#8A8A8A" />
-              <Text className="text-[12px] font-bold text-dime-ink-2">Replace</Text>
+              <Text className="text-[12px] font-bold text-dime-ink-2">{uploading ? "Uploading..." : "Replace photo"}</Text>
             </Pressable>
-            {bgRemoveSupported ? (
-              <Pressable
-                onPress={handleRemoveBg}
-                disabled={removingBg || uploading}
-                className="flex-1 flex-row items-center justify-center gap-1.5 rounded-xl bg-dime-ink py-2.5"
-              >
-                <Icon name="wand.and.stars" size={12} color="#fff" />
-                <Text className="text-[12px] font-bold text-white">
-                  {removingBg ? "Processing..." : "Remove Background"}
-                </Text>
-              </Pressable>
-            ) : null}
           </View>
-        ) : null}
+        ) : (
+          <Pressable onPress={pickPhoto} disabled={uploading} className="mt-4 h-40 items-center justify-center rounded-2xl border-2 border-dashed border-dime-primary-300 bg-dime-primary-50">
+            <Icon name="photo.badge.plus.fill" size={32} color="#FF6B2C" />
+            <Text className="mt-2 text-[14px] font-bold text-dime-primary-700">
+              {uploading ? "Uploading..." : "Upload photo"}
+            </Text>
+            <Text className="mt-1 text-[12px] text-dime-ink-3">Tap to select from your gallery</Text>
+          </Pressable>
+        )}
 
         <View className="mt-4 gap-4">
           <Input label="Name" value={name} onChangeText={setName} placeholder="Butter Chicken" />
-          <Input label="Description" value={description} onChangeText={setDescription} multiline numberOfLines={2} />
-          <View className="flex-row gap-4">
-            <View className="flex-1"><Input label="Price (₹)" value={price} onChangeText={setPrice} keyboardType="decimal-pad" /></View>
-            <View className="flex-1"><Input label="Prep time (min)" value={prepTime} onChangeText={setPrepTime} keyboardType="number-pad" /></View>
-          </View>
-          <Input label="Calories (optional)" value={calories} onChangeText={setCalories} keyboardType="number-pad" />
+          <Input label="Description" value={description} onChangeText={setDescription} multiline numberOfLines={2} placeholder="A rich, creamy tomato-based curry..." />
+          <Input label="Price (₹)" value={price} onChangeText={setPrice} keyboardType="decimal-pad" placeholder="299" />
 
           <View>
             <Text className="mb-2 text-[13px] font-bold text-dime-ink-2">Category</Text>
@@ -325,48 +265,19 @@ function ItemEditor({
             </ChipRow>
           </View>
 
-          <View className="flex-row gap-4">
-            <View className="flex-1 flex-row items-center justify-between rounded-xl bg-white px-3 py-2.5" style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 12, elevation: 2 }}>
-              <View className="flex-row items-center gap-2">
-                <VegDot veg={isVeg} />
-                <Text className="text-[13px] text-dime-ink">{isVeg ? "Veg" : "Non-veg"}</Text>
-              </View>
-              <Switch value={isVeg} onValueChange={setIsVeg} trackColor={{ true: "#22C55E", false: "#EF4444" }} />
+          <View className="flex-row items-center justify-between rounded-xl bg-white px-4 py-3" style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 12, elevation: 2 }}>
+            <View className="flex-row items-center gap-2">
+              <VegDot veg={isVeg} />
+              <Text className="text-[14px] font-medium text-dime-ink">{isVeg ? "Vegetarian" : "Non-vegetarian"}</Text>
             </View>
-            <View className="flex-1 flex-row items-center justify-between rounded-xl bg-white px-3 py-2.5" style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 12, elevation: 2 }}>
-              <Text className="text-[13px] text-dime-ink">Bestseller</Text>
-              <Switch value={isBestseller} onValueChange={setBestseller} trackColor={{ true: "#FF6B2C", false: "#D1D1D6" }} />
-            </View>
-          </View>
-
-          <View>
-            <Text className="mb-2 text-[13px] font-bold text-dime-ink-2">Spice level</Text>
-            <ChipRow>
-              {[0, 1, 2, 3, 4].map((n) => (
-                <Chip key={n} label={n === 0 ? "None" : "🌶".repeat(n)} selected={spice === n} onPress={() => setSpice(n)} />
-              ))}
-            </ChipRow>
-          </View>
-
-          <View>
-            <Text className="mb-2 text-[13px] font-bold text-dime-ink-2">Allergens</Text>
-            <ChipRow>
-              {allergenPool.map((a) => (
-                <Chip
-                  key={a}
-                  label={a}
-                  selected={allergens.includes(a)}
-                  onPress={() => setAllergens(allergens.includes(a) ? allergens.filter((x) => x !== a) : [...allergens, a])}
-                />
-              ))}
-            </ChipRow>
+            <Switch value={isVeg} onValueChange={setIsVeg} trackColor={{ true: "#22C55E", false: "#EF4444" }} />
           </View>
         </View>
 
         <View className="mt-5">
           <Button label={item?.id ? "Save changes" : "Add to menu"} loading={saving} onPress={save} fullWidth />
         </View>
-      </Sheet.Body>
+      </ScrollView>
     </Sheet>
   );
 }

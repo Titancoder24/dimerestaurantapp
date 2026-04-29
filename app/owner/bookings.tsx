@@ -1,18 +1,22 @@
 import { Text, View, FlatList, Pressable } from "react-native";
-import { Avatar, Badge, Header, Screen } from "@/components/ui";
+import { Avatar, Badge, Header, Screen, haptic } from "@/components/ui";
 import { useOwnedRestaurant, useRestaurantBookings } from "@/hooks/owner";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/store/auth";
 import { useQueryClient } from "@tanstack/react-query";
-import { fullDate, time12 } from "@/lib/format";
+import { fullDate, time12, rupees } from "@/lib/format";
+import { Icon } from "@/components/ui";
 
 export default function OwnerBookings() {
   const qc = useQueryClient();
+  const profile = useAuth((s) => s.profile);
   const { data: restaurant } = useOwnedRestaurant();
   const { data: bookings } = useRestaurantBookings(restaurant?.id);
 
   async function setStatus(id: string, status: "confirmed" | "arrived" | "cancelled" | "no_show" | "completed") {
-    await supabase.from("bookings").update({ status }).eq("id", id);
+    await supabase.from("bookings").update({ status, responded_by: profile?.id ?? null }).eq("id", id);
     qc.invalidateQueries({ queryKey: ["restaurant-bookings"] });
+    haptic.success();
   }
 
   return (
@@ -32,7 +36,15 @@ export default function OwnerBookings() {
               </View>
               <Badge tone={b.status === "confirmed" ? "green" : b.status === "cancelled" ? "red" : "orange"} label={b.status} />
             </View>
-            <View className="mt-4 flex-row gap-2">
+            {Array.isArray((b as any).pre_order) && (b as any).pre_order.length > 0 ? (
+              <View className="mt-3 flex-row items-center gap-2 rounded-xl bg-amber-50 px-3 py-2">
+                <Icon name="fork.knife" size={12} color="#D97706" />
+                <Text className="flex-1 text-[12px] font-medium text-amber-800">
+                  {(b as any).pre_order.length} pre-ordered items · {rupees((b as any).pre_order.reduce((s: number, i: any) => s + i.price * i.quantity, 0))}
+                </Text>
+              </View>
+            ) : null}
+            <View className="mt-3 flex-row gap-2">
               {b.status === "pending" ? (
                 <Pressable onPress={() => setStatus(b.id, "confirmed")} className="flex-1 items-center rounded-lg bg-dime-primary-500 py-2">
                   <Text className="text-[12px] font-bold text-white">Confirm</Text>

@@ -14,14 +14,14 @@ export default function BookingConfirm() {
   return (
     <Screen>
       <View className="flex-1 items-center justify-center px-8 py-16">
-        <View className="mb-6 h-28 w-28 items-center justify-center rounded-full bg-emerald-50">
-          <Icon name="checkmark.circle.fill" size={56} color="#16A34A" />
+        <View className="mb-6 h-28 w-28 items-center justify-center rounded-full bg-orange-50">
+          <Icon name="clock.fill" size={56} color="#FF6B2C" />
         </View>
         <Text className="text-[32px] font-bold text-dime-ink" style={{ letterSpacing: -1 }}>
-          You're booked
+          Booking requested
         </Text>
         <Text className="mt-3 text-center text-[15px] text-dime-ink-3">
-          We've saved your table. You'll get a reminder before your arrival.
+          The restaurant will review your reservation and confirm shortly. You'll get a notification once they respond.
         </Text>
 
         <View className="mt-10 w-full max-w-[300px] gap-3">

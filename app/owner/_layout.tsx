@@ -2,11 +2,13 @@ import { useEffect, useRef } from "react";
 import { Slot, usePathname, useRouter } from "expo-router";
 import { Pressable, Text, View, ScrollView, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/store/auth";
 import { Icon, haptic } from "@/components/ui";
 import { MobileBottomNav } from "@/components/ui/MobileBottomNav";
 import { cn } from "@/lib/cn";
 import { useOwnedRestaurant } from "@/hooks/owner";
+import { supabase } from "@/lib/supabase";
 
 type NavItem = { href: string; label: string; icon: string; group: string; ownerOnly?: boolean };
 const nav: NavItem[] = [
@@ -23,6 +25,7 @@ const nav: NavItem[] = [
   { href: "/owner/offers", label: "Offers", icon: "gift.fill", group: "Marketing" },
   { href: "/owner/ads", label: "Ads", icon: "sparkles", group: "Marketing" },
   { href: "/owner/reviews", label: "Reviews", icon: "star.fill", group: "Marketing" },
+  { href: "/owner/notifications", label: "Notifications", icon: "bell.fill", group: "Support" },
   { href: "/owner/help", label: "Help", icon: "info.circle", group: "Support" },
   { href: "/owner/settings", label: "Settings", icon: "gear", group: "Support", ownerOnly: true },
 ];
@@ -39,6 +42,21 @@ export default function OwnerLayout() {
   const { width } = useWindowDimensions();
   const wideScreen = width >= 900;
   const redirected = useRef(false);
+
+  const { data: unreadCount } = useQuery({
+    queryKey: ["unread-notif-count", profile?.id],
+    enabled: !!profile?.id,
+    refetchInterval: 15_000,
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", profile!.id)
+        .eq("is_read", false);
+      if (error) return 0;
+      return count ?? 0;
+    },
+  });
 
   useEffect(() => {
     if (!hydrated || redirected.current) return;
@@ -71,9 +89,23 @@ export default function OwnerLayout() {
         {wideScreen ? (
           <View className="w-[240px] border-r border-neutral-50 bg-white px-3 py-5">
             <View className="mb-5 px-2">
-              <Text className="text-[11px] font-bold uppercase text-dime-ink-4" style={{ letterSpacing: 1.5 }}>{isManager ? "Manager view" : "Restaurant"}</Text>
-              <Text className="mt-1 text-[16px] font-bold text-dime-ink" style={{ letterSpacing: -0.5 }}>{restaurant?.name ?? "Owner"}</Text>
-              <Text className="text-[11px] text-dime-ink-3">{restaurant?.city}</Text>
+              <View className="flex-row items-start justify-between">
+                <View className="flex-1">
+                  <Text className="text-[11px] font-bold uppercase text-dime-ink-4" style={{ letterSpacing: 1.5 }}>{isManager ? "Manager view" : "Restaurant"}</Text>
+                  <Text className="mt-1 text-[16px] font-bold text-dime-ink" style={{ letterSpacing: -0.5 }}>{restaurant?.name ?? "Owner"}</Text>
+                  <Text className="text-[11px] text-dime-ink-3">{restaurant?.city}</Text>
+                </View>
+                <Pressable onPress={() => router.push("/owner/notifications" as never)} className="relative mt-1">
+                  <View className="h-9 w-9 items-center justify-center rounded-full bg-dime-bg-2">
+                    <Icon name="bell.fill" size={16} color="#8A8A8A" />
+                  </View>
+                  {(unreadCount ?? 0) > 0 ? (
+                    <View className="absolute -right-1 -top-1 h-5 min-w-[20px] items-center justify-center rounded-full bg-dime-danger px-1">
+                      <Text className="text-[10px] font-bold text-white">{unreadCount! > 9 ? "9+" : unreadCount}</Text>
+                    </View>
+                  ) : null}
+                </Pressable>
+              </View>
               {isManager ? (
                 <View className="mt-2 self-start rounded-full bg-blue-50 px-2 py-0.5">
                   <Text className="text-[10px] font-bold uppercase tracking-wider text-blue-700">Manager</Text>

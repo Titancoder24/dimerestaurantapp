@@ -51,7 +51,12 @@ export default function OwnerOnboarding() {
   const [city, setCity] = useState("Bengaluru");
 
   const [fssai, setFssai] = useState("");
+  const [fssaiCertUrl, setFssaiCertUrl] = useState<string | null>(null);
   const [gst, setGst] = useState("");
+  const [pan, setPan] = useState("");
+  const [bankName, setBankName] = useState("");
+  const [bankAccount, setBankAccount] = useState("");
+  const [bankIfsc, setBankIfsc] = useState("");
   const [taxRate, setTaxRate] = useState("5");
   const [serviceCharge, setServiceCharge] = useState("0");
 
@@ -62,7 +67,7 @@ export default function OwnerOnboarding() {
   const [gallery, setGallery] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
 
-  const totalSteps = 7;
+  const totalSteps = 8;
   const progress = ((step + 1) / totalSteps) * 100;
 
   useEffect(() => {
@@ -75,6 +80,8 @@ export default function OwnerOnboarding() {
     if (step === 0 && (!name.trim() || cuisines.length === 0)) return toast.error("Add a name and at least one cuisine");
     if (step === 1 && (!phone.trim() || !email.includes("@"))) return toast.error("Enter contact details");
     if (step === 2 && !address.trim()) return toast.error("Enter your address");
+    if (step === 3 && !fssai.trim()) return toast.error("Enter your FSSAI number");
+    if (step === 3 && !pan.trim()) return toast.error("Enter your PAN number");
     haptic.light();
     setStep((s) => Math.min(totalSteps - 1, s + 1));
   }
@@ -140,13 +147,18 @@ export default function OwnerOnboarding() {
           hours: dbHours,
           amenities,
           fssai_number: fssai || null,
+          fssai_certificate_url: fssaiCertUrl,
           gst_number: gst || null,
+          pan_number: pan || null,
+          bank_account_name: bankName || null,
+          bank_account_number: bankAccount || null,
+          bank_ifsc: bankIfsc || null,
           tax_rate: Number(taxRate) || 5,
           service_charge_rate: Number(serviceCharge) || 0,
           cover_image_url: coverUrl,
           gallery_images: gallery,
-          featured: true,
-          status: "verified",
+          featured: false,
+          status: "pending",
         })
         .select()
         .single();
@@ -242,10 +254,33 @@ export default function OwnerOnboarding() {
 
         {step === 3 ? (
           <View className="gap-4">
-            <SectionTitle icon="doc.text.fill" title="Legal & tax" />
-            <Text className="text-[12px] text-dime-ink-3">FSSAI and GST numbers help us verify your business. You can add or update these later.</Text>
-            <Input label="FSSAI license number" value={fssai} onChangeText={setFssai} placeholder="14-digit number" />
-            <Input label="GST number" value={gst} onChangeText={setGst} placeholder="Optional" />
+            <SectionTitle icon="doc.text.fill" title="FSSAI & GST" />
+            <Text className="text-[12px] text-dime-ink-3">These help us verify your business and are required for approval.</Text>
+            <Input label="FSSAI license number *" value={fssai} onChangeText={setFssai} placeholder="14-digit FSSAI number" />
+            <View>
+              <Text className="mb-2 text-[13px] font-bold text-dime-ink-2">FSSAI certificate</Text>
+              <Pressable
+                onPress={async () => {
+                  if (!profile) return;
+                  setUploading(true);
+                  try {
+                    const url = await pickAndUpload({ bucket: "restaurant-media", prefix: profile.id });
+                    if (url) setFssaiCertUrl(url);
+                  } catch (e) { toast.error("Upload failed", (e as Error).message); }
+                  finally { setUploading(false); }
+                }}
+                disabled={uploading}
+                className="flex-row items-center gap-3 rounded-xl border-2 border-dashed border-dime-primary-300 bg-dime-primary-50 p-4"
+              >
+                <Icon name={fssaiCertUrl ? "checkmark.circle.fill" : "doc.fill"} size={20} color={fssaiCertUrl ? "#22C55E" : "#FF6B2C"} />
+                <View className="flex-1">
+                  <Text className="text-[13px] font-bold text-dime-ink">{fssaiCertUrl ? "Certificate uploaded" : "Upload FSSAI certificate"}</Text>
+                  <Text className="text-[11px] text-dime-ink-3">{fssaiCertUrl ? "Tap to replace" : "PDF or image of your FSSAI license"}</Text>
+                </View>
+              </Pressable>
+            </View>
+            <Input label="GST number" value={gst} onChangeText={setGst} placeholder="22AAAAA0000A1Z5" />
+            <Input label="PAN number *" value={pan} onChangeText={setPan} placeholder="ABCDE1234F" />
             <View className="flex-row gap-4">
               <View className="flex-1"><Input label="Tax %" value={taxRate} onChangeText={setTaxRate} keyboardType="decimal-pad" /></View>
               <View className="flex-1"><Input label="Service charge %" value={serviceCharge} onChangeText={setServiceCharge} keyboardType="decimal-pad" /></View>
@@ -254,6 +289,16 @@ export default function OwnerOnboarding() {
         ) : null}
 
         {step === 4 ? (
+          <View className="gap-4">
+            <SectionTitle icon="banknote.fill" title="Bank details" />
+            <Text className="text-[12px] text-dime-ink-3">For payouts. You can update this later in settings.</Text>
+            <Input label="Account holder name" value={bankName} onChangeText={setBankName} placeholder="As per bank records" />
+            <Input label="Account number" value={bankAccount} onChangeText={setBankAccount} keyboardType="number-pad" placeholder="Account number" />
+            <Input label="IFSC code" value={bankIfsc} onChangeText={setBankIfsc} autoCapitalize="characters" placeholder="e.g. SBIN0001234" />
+          </View>
+        ) : null}
+
+        {step === 5 ? (
           <View className="gap-4">
             <SectionTitle icon="clock.fill" title="Operating hours" />
             {dayKeys.map((k, i) => (
@@ -291,7 +336,7 @@ export default function OwnerOnboarding() {
           </View>
         ) : null}
 
-        {step === 5 ? (
+        {step === 6 ? (
           <View className="gap-4">
             <SectionTitle icon="sparkles" title="Amenities" />
             <Text className="text-[12px] text-dime-ink-3">Help diners know what to expect.</Text>
@@ -303,7 +348,7 @@ export default function OwnerOnboarding() {
           </View>
         ) : null}
 
-        {step === 6 ? (
+        {step === 7 ? (
           <View className="gap-4">
             <SectionTitle icon="photo.fill" title="Photos" />
             <Text className="text-[12px] text-dime-ink-3">A great cover photo and 3+ gallery photos make your listing stand out.</Text>

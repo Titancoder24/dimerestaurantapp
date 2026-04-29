@@ -11,6 +11,11 @@ import { useAuth } from "@/store/auth";
 const typeIcon: Record<string, string> = {
   order_update: "bag.fill",
   booking_update: "calendar",
+  booking_request: "calendar.badge.plus",
+  booking_confirmed: "checkmark.circle.fill",
+  booking_rejected: "xmark.circle.fill",
+  restaurant_approved: "checkmark.seal.fill",
+  restaurant_rejected: "exclamationmark.triangle.fill",
   offer: "gift.fill",
   loyalty: "crown.fill",
   system: "info.circle",
