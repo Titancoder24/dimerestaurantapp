@@ -3,11 +3,13 @@ import { cn } from "@/lib/cn";
 import { haptic } from "./haptics";
 
 type Variant = "primary" | "secondary" | "ghost" | "destructive";
+type Tone = "default" | "contrast";
 type Size = "sm" | "md" | "lg";
 
 type Props = PressableProps & {
   label: string;
   variant?: Variant;
+  tone?: Tone;
   size?: Size;
   loading?: boolean;
   leading?: React.ReactNode;
@@ -31,6 +33,7 @@ const text: Record<Size, string> = {
 export function Button({
   label,
   variant = "primary",
+  tone = "default",
   size = "md",
   loading,
   disabled,
@@ -41,18 +44,23 @@ export function Button({
   onPress,
   ...rest
 }: Props) {
-  const v = {
-    primary: "bg-dime-orange-500 active:bg-dime-orange-600",
-    secondary: "bg-transparent border border-dime-orange-500 active:bg-dime-orange-50",
-    ghost: "bg-transparent",
-    destructive: "bg-dime-danger",
-  }[variant];
-  const tv = {
-    primary: "text-white",
-    secondary: "text-dime-orange-600",
-    ghost: "text-dime-orange-600",
-    destructive: "text-white",
-  }[variant];
+  const isContrast = tone === "contrast";
+  const v = isContrast
+    ? "bg-white dark:bg-white active:bg-white/90"
+    : {
+        primary: "bg-dime-orange-500 active:bg-dime-orange-600",
+        secondary: "bg-transparent border border-dime-orange-500 active:bg-dime-orange-50",
+        ghost: "bg-transparent",
+        destructive: "bg-dime-danger",
+      }[variant];
+  const tv = isContrast
+    ? "text-black"
+    : {
+        primary: "text-white",
+        secondary: "text-dime-orange-600",
+        ghost: "text-dime-orange-600",
+        destructive: "text-white",
+      }[variant];
 
   const isDisabled = disabled || loading;
 

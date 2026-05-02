@@ -60,6 +60,11 @@ export type Database = {
           cover_image_url: string | null; gallery_images: string[];
           logo_url: string | null;
           status: RestaurantStatus; featured: boolean;
+          cost_for_two: number | null; distance_km: number | null;
+          pre_booking_discount_pct: number | null;
+          bank_offer_label: string | null;
+          cashback_pct: number | null;
+          gallery_urls: string[] | null;
           created_at: string; updated_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["restaurants"]["Row"]> & { owner_id: string; name: string; slug: string };
@@ -161,6 +166,7 @@ export type Database = {
           id: string; user_id: string; restaurant_id: string; order_id: string | null;
           overall_rating: number; food_rating: number | null; service_rating: number | null;
           ambience_rating: number | null; value_rating: number | null;
+          beverages_rating: number | null;
           text: string | null; photos: string[]; dish_tags: string[];
           recommend: boolean; reply_text: string | null; reply_at: string | null;
           is_published: boolean; created_at: string; updated_at: string;

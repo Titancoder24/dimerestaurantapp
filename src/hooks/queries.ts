@@ -178,6 +178,134 @@ export function useTables(restaurantId: string | undefined) {
   });
 }
 
+export type DineoutFilters = {
+  city?: string;
+  withinKm?: number;
+  minRating?: number;
+  pureVeg?: boolean;
+  servesAlcohol?: boolean;
+  cuisine?: string;
+  search?: string;
+};
+
+export function useDineoutRestaurants(filters: DineoutFilters = {}) {
+  return useQuery({
+    queryKey: ["dineout-restaurants", filters],
+    queryFn: async () => {
+      let q = supabase
+        .from("restaurants")
+        .select("*")
+        .eq("status", "verified")
+        .order("featured", { ascending: false })
+        .order("rating", { ascending: false });
+
+      if (filters.city) q = q.eq("city", filters.city);
+      if (filters.minRating && filters.minRating > 0) q = q.gte("rating", filters.minRating);
+      if (filters.cuisine && filters.cuisine !== "All") q = q.contains("cuisines", [filters.cuisine]);
+      if (filters.servesAlcohol) q = q.contains("amenities", ["Bar"]);
+      if (filters.search) {
+        const term = filters.search.replace(/[%_]/g, "").trim();
+        if (term) q = q.ilike("name", `%${term}%`);
+      }
+
+      const { data, error } = await q.limit(120);
+      if (error) throw error;
+
+      let list = (data ?? []) as Tables<"restaurants">[];
+
+      if (filters.pureVeg) {
+        list = list.filter((r) => r.amenities?.some((a) => /pure veg/i.test(a)) ?? false);
+      }
+      if (filters.withinKm && filters.withinKm > 0) {
+        list = list.filter((r) => {
+          const d = r.distance_km;
+          return d == null ? true : Number(d) <= filters.withinKm!;
+        });
+      }
+      return list;
+    },
+  });
+}
+
+export type ReviewBreakdown = {
+  food: number;
+  beverages: number;
+  service: number;
+  overall: number;
+  total: number;
+};
+
+export function useReviewBreakdown(restaurantId: string | undefined) {
+  return useQuery<ReviewBreakdown>({
+    queryKey: ["review-breakdown", restaurantId],
+    enabled: !!restaurantId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("reviews")
+        .select("overall_rating, food_rating, beverages_rating, service_rating")
+        .eq("restaurant_id", restaurantId!)
+        .eq("is_published", true)
+        .limit(500);
+      if (error) throw error;
+
+      const rows = (data ?? []) as Array<{
+        overall_rating: number | null;
+        food_rating: number | null;
+        beverages_rating: number | null;
+        service_rating: number | null;
+      }>;
+
+      const avg = (key: keyof (typeof rows)[number]) => {
+        const nums = rows.map((r) => r[key]).filter((v): v is number => typeof v === "number");
+        if (!nums.length) return 0;
+        return nums.reduce((a, b) => a + b, 0) / nums.length;
+      };
+
+      const overall = avg("overall_rating");
+      return {
+        food: Number(avg("food_rating").toFixed(1)),
+        beverages: Number(avg("beverages_rating").toFixed(1)),
+        service: Number(avg("service_rating").toFixed(1)),
+        overall: Number(overall.toFixed(1)),
+        total: rows.length,
+      };
+    },
+  });
+}
+
+export function useSimilarRestaurants(restaurantId: string | undefined) {
+  return useQuery({
+    queryKey: ["similar-restaurants", restaurantId],
+    enabled: !!restaurantId,
+    queryFn: async () => {
+      const { data: src, error: srcErr } = await supabase
+        .from("restaurants")
+        .select("city, cuisines")
+        .eq("id", restaurantId!)
+        .maybeSingle();
+      if (srcErr) throw srcErr;
+      if (!src) return [] as Tables<"restaurants">[];
+
+      const cuisines = (src.cuisines as string[]) ?? [];
+
+      let q = supabase
+        .from("restaurants")
+        .select("*")
+        .eq("status", "verified")
+        .neq("id", restaurantId!)
+        .order("rating", { ascending: false })
+        .limit(6);
+
+      if (src.city) q = q.eq("city", src.city);
+      if (cuisines.length) q = q.overlaps("cuisines", cuisines);
+
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []) as Tables<"restaurants">[];
+    },
+  });
+}
+
 export function useNotifications() {
   return useQuery({
     queryKey: ["notifications"],
