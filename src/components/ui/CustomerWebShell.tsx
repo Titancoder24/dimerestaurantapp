@@ -14,8 +14,7 @@ const tabs = [
   { href: "/home", label: "Home" },
   { href: "/discover", label: "Discover" },
   { href: "/bookings", label: "Bookings" },
-  { href: "/offers", label: "Offers" },
-  { href: "/loyalty", label: "Rewards" },
+  { href: "/profile", label: "Profile" },
 ];
 
 export function CustomerWebShell({ children }: { children: React.ReactNode }) {
@@ -33,47 +32,45 @@ export function CustomerWebShell({ children }: { children: React.ReactNode }) {
   if (!isWebDesktop || !isCustomerRoute) return <>{children}</>;
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#FAFAFA" }}>
-      {/* Premium sticky nav */}
+    <View style={{ flex: 1, backgroundColor: "#F2F2F2" }}>
+      {/* Nav bar */}
       <View
-        className="flex-row items-center bg-white px-8 py-3"
-        style={[webStickyTop, { borderBottomWidth: 1, borderBottomColor: "rgba(0,0,0,0.04)" }]}
+        className="flex-row items-center bg-white px-8 py-2.5"
+        style={[webStickyTop, { borderBottomWidth: 1, borderBottomColor: "#F0F0F0" }]}
       >
         {/* Brand */}
         <Pressable
           onPress={() => { haptic.light(); router.push("/home"); }}
           className="mr-10 flex-row items-center gap-2.5"
         >
-          <View className="h-9 w-9 items-center justify-center rounded-xl bg-dime-ink">
-            <Text className="text-[18px] font-bold text-white" style={{ letterSpacing: -0.5 }}>D</Text>
+          <View className="h-8 w-8 items-center justify-center rounded-[10px]" style={{ backgroundColor: "#FC8019" }}>
+            <Text className="text-[16px] font-bold text-white" style={{ letterSpacing: -0.5 }}>D</Text>
           </View>
-          <Text className="text-[20px] font-bold text-dime-ink" style={{ letterSpacing: -0.5 }}>
+          <Text className="text-[18px] font-bold text-[#1C1C1E]" style={{ letterSpacing: -0.5 }}>
             DIME
           </Text>
         </Pressable>
 
         {/* Nav tabs */}
         {session ? (
-          <View className="flex-row items-center gap-1">
+          <View className="flex-row items-center gap-0.5">
             {tabs.map((t) => {
               const active = pathname === t.href || pathname.startsWith(`${t.href}/`);
               return (
                 <Pressable
                   key={t.href}
                   onPress={() => { haptic.light(); router.push(t.href as never); }}
-                  className={cn("rounded-full px-4 py-2")}
+                  className="rounded-full px-4 py-2"
+                  style={active ? { backgroundColor: "#FFF4F4" } : undefined}
                 >
                   <Text
                     className={cn(
                       "text-[14px]",
-                      active ? "font-bold text-dime-ink" : "font-medium text-dime-ink-3"
+                      active ? "font-bold text-[#E23744]" : "font-medium text-[#535665]"
                     )}
                   >
                     {t.label}
                   </Text>
-                  {active ? (
-                    <View className="mx-auto mt-1 h-[2px] w-4 rounded-full bg-dime-primary-500" />
-                  ) : null}
                 </Pressable>
               );
             })}
@@ -87,51 +84,53 @@ export function CustomerWebShell({ children }: { children: React.ReactNode }) {
               {cartCount > 0 ? (
                 <Pressable
                   onPress={() => { haptic.light(); router.push("/cart"); }}
-                  className="relative h-10 w-10 items-center justify-center rounded-full bg-dime-bg-2"
+                  className="relative h-9 w-9 items-center justify-center rounded-full bg-[#F8F8F8]"
                 >
-                  <Icon name="cart.fill" size={16} color="#0F0F0F" />
-                  <View className="absolute -right-0.5 -top-0.5 h-[18px] min-w-[18px] items-center justify-center rounded-full bg-dime-primary-500 px-1">
-                    <Text className="text-[9px] font-bold text-white">{cartCount > 9 ? "9+" : cartCount}</Text>
+                  <Icon name="cart.fill" size={15} color="#1C1C1E" />
+                  <View className="absolute -right-0.5 -top-0.5 h-[16px] min-w-[16px] items-center justify-center rounded-full bg-[#E23744] px-1">
+                    <Text className="text-[8px] font-bold text-white">{cartCount > 9 ? "9+" : cartCount}</Text>
                   </View>
                 </Pressable>
               ) : null}
               <Pressable
                 onPress={() => { haptic.light(); router.push("/notifications"); }}
-                className="relative h-10 w-10 items-center justify-center rounded-full bg-dime-bg-2"
+                className="relative h-9 w-9 items-center justify-center rounded-full bg-[#F8F8F8]"
               >
-                <Icon name="bell.fill" size={16} color="#0F0F0F" />
+                <Icon name="bell.fill" size={15} color="#1C1C1E" />
                 {unread > 0 ? (
-                  <View className="absolute -right-0.5 -top-0.5 h-[18px] min-w-[18px] items-center justify-center rounded-full bg-dime-primary-500 px-1">
-                    <Text className="text-[9px] font-bold text-white">{unread > 9 ? "9+" : unread}</Text>
+                  <View className="absolute -right-0.5 -top-0.5 h-[16px] min-w-[16px] items-center justify-center rounded-full bg-[#E23744] px-1">
+                    <Text className="text-[8px] font-bold text-white">{unread > 9 ? "9+" : unread}</Text>
                   </View>
                 ) : null}
               </Pressable>
               <Pressable
                 onPress={() => { haptic.light(); router.push("/profile"); }}
-                className="ml-1 flex-row items-center gap-2.5 rounded-full bg-dime-bg-2 py-1.5 pl-1.5 pr-4"
+                className="ml-1 flex-row items-center gap-2 rounded-full bg-[#F8F8F8] py-1.5 pl-1.5 pr-3.5"
               >
-                <Avatar name={profile?.name} uri={profile?.avatar_url} size={30} />
-                <Text className="text-[13px] font-semibold text-dime-ink">
+                <Avatar name={profile?.name} uri={profile?.avatar_url} size={28} />
+                <Text className="text-[13px] font-semibold text-[#1C1C1E]">
                   {profile?.name?.split(" ")[0] ?? "Account"}
                 </Text>
               </Pressable>
             </>
           ) : (
-            <View className="flex-row items-center gap-3">
-              <Link href="/login" className="text-[14px] font-semibold text-dime-ink-2">
+            <View className="flex-row items-center gap-2.5">
+              <Link href="/login" className="text-[14px] font-semibold text-[#535665]">
                 Sign in
               </Link>
               <Pressable
                 onPress={() => router.push("/signup")}
-                className="rounded-full bg-dime-ink px-5 py-2.5"
+                className="rounded-full px-5 py-2"
+                style={{ backgroundColor: "#E23744" }}
               >
                 <Text className="text-[13px] font-bold text-white">Sign up</Text>
               </Pressable>
               <Pressable
                 onPress={() => router.push({ pathname: "/signup", params: { role: "owner" } })}
-                className="rounded-full border border-neutral-200 bg-white px-5 py-2.5"
+                className="rounded-full px-5 py-2"
+                style={{ borderWidth: 1, borderColor: "#E8E8E8" }}
               >
-                <Text className="text-[13px] font-bold text-dime-ink">Partner with DIME</Text>
+                <Text className="text-[13px] font-bold text-[#1C1C1E]">Partner with DIME</Text>
               </Pressable>
             </View>
           )}

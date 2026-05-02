@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/store/auth";
 
@@ -25,5 +26,11 @@ export default function Index() {
     }
   }, [hydrated, session, profile, router]);
 
-  return null;
+  return (
+    <View style={{ flex: 1, backgroundColor: "#FC8019", alignItems: "center", justifyContent: "center" }}>
+      <View style={{ height: 72, width: 72, borderRadius: 20, backgroundColor: "#fff", alignItems: "center", justifyContent: "center" }}>
+        <Text style={{ fontSize: 38, fontWeight: "800", color: "#1C1C1E", letterSpacing: -1.5 }}>D</Text>
+      </View>
+    </View>
+  );
 }

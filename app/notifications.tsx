@@ -21,6 +21,15 @@ const typeIcon: Record<string, string> = {
   system: "info.circle",
 };
 
+const typeColor: Record<string, string> = {
+  order_update: "#E23744",
+  booking_confirmed: "#267E3E",
+  booking_rejected: "#E23744",
+  restaurant_approved: "#267E3E",
+  restaurant_rejected: "#E23744",
+  offer: "#DB7C38",
+};
+
 export default function Notifications() {
   const router = useRouter();
   const { data } = useNotifications();
@@ -51,37 +60,45 @@ export default function Notifications() {
         back
         right={
           <Pressable onPress={markAllRead} hitSlop={10}>
-            <Text className="text-[13px] font-bold text-dime-primary-500">Mark all read</Text>
+            <Text className="text-[13px] font-bold text-[#E23744]">Mark all read</Text>
           </Pressable>
         }
       />
 
+      <View className="h-2 bg-[#F2F2F2]" />
+
       {(data ?? []).length === 0 ? (
         <EmptyState icon="bell.fill" title="No notifications" message="Updates about your orders, bookings and offers will appear here." />
       ) : (
-        <View className="px-5 py-2 gap-3">
-          {(data ?? []).map((n) => (
-            <Pressable
-              key={n.id}
-              onPress={() => {
-                const data = n.data as { order_id?: string; booking_id?: string } | null;
-                if (data?.order_id) router.push({ pathname: "/order/[id]", params: { id: data.order_id } });
-                else if (data?.booking_id) router.push({ pathname: "/booking/[id]", params: { id: data.booking_id } });
-              }}
-              className={`flex-row gap-4 rounded-2xl p-4 ${n.is_read ? "bg-white" : "bg-dime-primary-50"}`}
-              style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: n.is_read ? 0.03 : 0.06, shadowRadius: 8, elevation: 1 }}
-            >
-              <View className={`h-10 w-10 items-center justify-center rounded-xl ${n.is_read ? "bg-dime-bg-2" : "bg-dime-primary-500"}`}>
-                <Icon name={typeIcon[n.type] ?? "info.circle"} size={16} color={n.is_read ? "#8A8A8A" : "#fff"} />
-              </View>
-              <View className="flex-1">
-                <Text className="text-[15px] font-bold text-dime-ink">{n.title}</Text>
-                <Text className="mt-0.5 text-[13px] text-dime-ink-2">{n.message}</Text>
-                <Text className="mt-1.5 text-[11px] text-dime-ink-4">{timeAgo(n.created_at)}</Text>
-              </View>
-              {!n.is_read ? <View className="h-2.5 w-2.5 rounded-full bg-dime-primary-500 self-center" /> : null}
-            </Pressable>
-          ))}
+        <View className="bg-white">
+          {(data ?? []).map((n, idx) => {
+            const accent = typeColor[n.type] ?? "#535665";
+            return (
+              <Pressable
+                key={n.id}
+                onPress={() => {
+                  const d = n.data as { order_id?: string; booking_id?: string } | null;
+                  if (d?.order_id) router.push({ pathname: "/order/[id]", params: { id: d.order_id } });
+                  else if (d?.booking_id) router.push({ pathname: "/booking/[id]", params: { id: d.booking_id } });
+                }}
+                className="flex-row gap-3.5 px-4 py-3.5"
+                style={idx > 0 ? { borderTopWidth: 1, borderTopColor: "#F0F0F0" } : undefined}
+              >
+                <View
+                  className="h-10 w-10 items-center justify-center rounded-[12px]"
+                  style={{ backgroundColor: n.is_read ? "#F8F8F8" : `${accent}14` }}
+                >
+                  <Icon name={typeIcon[n.type] ?? "info.circle"} size={16} color={n.is_read ? "#93959F" : accent} />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-[14px] font-bold text-[#1C1C1E]">{n.title}</Text>
+                  <Text className="mt-0.5 text-[13px] text-[#535665]">{n.message}</Text>
+                  <Text className="mt-1 text-[11px] text-[#93959F]">{timeAgo(n.created_at)}</Text>
+                </View>
+                {!n.is_read ? <View className="h-2 w-2 self-center rounded-full bg-[#E23744]" /> : null}
+              </Pressable>
+            );
+          })}
         </View>
       )}
     </Screen>

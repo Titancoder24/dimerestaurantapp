@@ -1,10 +1,10 @@
 import { useEffect, useRef } from "react";
 import { Slot, usePathname, useRouter } from "expo-router";
-import { Pressable, Text, View, ScrollView, useWindowDimensions } from "react-native";
+import { Platform, Pressable, Text, View, ScrollView, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/store/auth";
-import { Icon, haptic } from "@/components/ui";
+import { Avatar, Icon, haptic } from "@/components/ui";
 import { MobileBottomNav } from "@/components/ui/MobileBottomNav";
 import { cn } from "@/lib/cn";
 import { useOwnedRestaurant } from "@/hooks/owner";
@@ -31,12 +31,14 @@ const nav: NavItem[] = [
 ];
 
 const ownerPrimaryTabs = ["/owner/dashboard", "/owner/kitchen", "/owner/orders", "/owner/tables"];
+const groupOrder = ["Operations", "Catalogue", "Insights", "Team", "Marketing", "Support"];
 
 export default function OwnerLayout() {
   const router = useRouter();
   const session = useAuth((s) => s.session);
   const hydrated = useAuth((s) => s.hydrated);
   const profile = useAuth((s) => s.profile);
+  const signOut = useAuth((s) => s.signOut);
   const { data: restaurant, isLoading: restaurantLoading } = useOwnedRestaurant();
   const pathname = usePathname();
   const { width } = useWindowDimensions();
@@ -83,50 +85,103 @@ export default function OwnerLayout() {
   const isManager = profile?.role === "manager";
   const visibleNav = isManager ? nav.filter((n) => !n.ownerOnly) : nav;
 
+  const grouped: Record<string, NavItem[]> = {};
+  for (const n of visibleNav) {
+    grouped[n.group] = grouped[n.group] ?? [];
+    grouped[n.group]!.push(n);
+  }
+
+  const handleSignOut = async () => {
+    if (Platform.OS === "web") {
+      if (!window.confirm("Sign out? You can sign back in anytime.")) return;
+    }
+    await signOut();
+    router.replace("/login");
+  };
+
   return (
-    <SafeAreaView edges={["top"]} className="flex-1 bg-dime-bg-grouped">
+    <SafeAreaView edges={["top"]} className="flex-1 bg-neutral-50">
       <View className="flex-1 flex-row">
         {wideScreen ? (
-          <View className="w-[240px] border-r border-neutral-50 bg-white px-3 py-5">
-            <View className="mb-5 px-2">
+          <View className="w-[260px] bg-white" style={{ shadowColor: "#000", shadowOffset: { width: 1, height: 0 }, shadowOpacity: 0.04, shadowRadius: 20, borderRightWidth: 1, borderRightColor: "rgba(0,0,0,0.04)" }}>
+            {/* Restaurant header */}
+            <View className="px-5 pb-4 pt-6">
               <View className="flex-row items-start justify-between">
                 <View className="flex-1">
-                  <Text className="text-[11px] font-bold uppercase text-dime-ink-4" style={{ letterSpacing: 1.5 }}>{isManager ? "Manager view" : "Restaurant"}</Text>
-                  <Text className="mt-1 text-[16px] font-bold text-dime-ink" style={{ letterSpacing: -0.5 }}>{restaurant?.name ?? "Owner"}</Text>
-                  <Text className="text-[11px] text-dime-ink-3">{restaurant?.city}</Text>
+                  <Text className="text-[10px] font-bold uppercase text-dime-ink-4" style={{ letterSpacing: 1.2 }}>{isManager ? "Manager" : "Restaurant"}</Text>
+                  <Text className="mt-1 text-[17px] font-bold text-dime-ink" style={{ letterSpacing: -0.5 }} numberOfLines={1}>{restaurant?.name ?? "Owner"}</Text>
+                  {restaurant?.city ? <Text className="text-[12px] text-dime-ink-3">{restaurant.city}</Text> : null}
                 </View>
                 <Pressable onPress={() => router.push("/owner/notifications" as never)} className="relative mt-1">
-                  <View className="h-9 w-9 items-center justify-center rounded-full bg-dime-bg-2">
-                    <Icon name="bell.fill" size={16} color="#8A8A8A" />
+                  <View className="h-9 w-9 items-center justify-center rounded-full bg-neutral-50">
+                    <Icon name="bell.fill" size={15} color="#737373" />
                   </View>
                   {(unreadCount ?? 0) > 0 ? (
-                    <View className="absolute -right-1 -top-1 h-5 min-w-[20px] items-center justify-center rounded-full bg-dime-danger px-1">
-                      <Text className="text-[10px] font-bold text-white">{unreadCount! > 9 ? "9+" : unreadCount}</Text>
+                    <View className="absolute -right-1 -top-1 h-[18px] min-w-[18px] items-center justify-center rounded-full bg-dime-primary-500 px-1">
+                      <Text className="text-[9px] font-bold text-white">{unreadCount! > 9 ? "9+" : unreadCount}</Text>
                     </View>
                   ) : null}
                 </Pressable>
               </View>
-              {isManager ? (
-                <View className="mt-2 self-start rounded-full bg-blue-50 px-2 py-0.5">
-                  <Text className="text-[10px] font-bold uppercase tracking-wider text-blue-700">Manager</Text>
-                </View>
-              ) : null}
             </View>
-            <ScrollView>
-              {visibleNav.map((n) => {
-                const active = pathname.startsWith(n.href);
-                return (
-                  <Pressable
-                    key={n.href}
-                    onPress={() => { haptic.light(); router.push(n.href as never); }}
-                    className={cn("mb-1 flex-row items-center gap-4 rounded-xl px-3 py-2.5", active ? "bg-dime-primary-50" : "bg-transparent")}
-                  >
-                    <Icon name={n.icon} size={16} color={active ? "#FF6B2C" : "#8A8A8A"} />
-                    <Text className={cn("text-[14px]", active ? "font-bold text-dime-primary-700" : "text-dime-ink-2")}>{n.label}</Text>
-                  </Pressable>
-                );
-              })}
+
+            <View className="mx-5 mb-4 h-px bg-neutral-100" />
+
+            {/* Profile */}
+            <View className="mx-5 mb-4 flex-row items-center gap-3 rounded-xl bg-neutral-50 px-3 py-2.5">
+              <Avatar name={profile.name} uri={profile.avatar_url} size={32} />
+              <View className="flex-1">
+                <Text className="text-[13px] font-semibold text-dime-ink" numberOfLines={1}>{profile.name ?? "Owner"}</Text>
+                {isManager ? (
+                  <Text className="text-[10px] font-bold uppercase text-blue-600" style={{ letterSpacing: 0.8 }}>Manager</Text>
+                ) : (
+                  <Text className="text-[10px] font-bold uppercase text-dime-primary-500" style={{ letterSpacing: 0.8 }}>Owner</Text>
+                )}
+              </View>
+            </View>
+
+            {/* Nav groups */}
+            <ScrollView className="flex-1 px-3" showsVerticalScrollIndicator={false}>
+              {groupOrder.filter((g) => grouped[g]).map((g) => (
+                <View key={g} className="mb-4">
+                  <Text className="mb-1.5 px-3 text-[10px] font-bold uppercase text-neutral-400" style={{ letterSpacing: 1.2 }}>{g}</Text>
+                  {grouped[g]!.map((n) => {
+                    const active = pathname.startsWith(n.href);
+                    const isNotif = n.href.includes("notifications");
+                    return (
+                      <Pressable
+                        key={n.href}
+                        onPress={() => { haptic.light(); router.push(n.href as never); }}
+                        className={cn("mb-0.5 flex-row items-center gap-3 rounded-lg px-3 py-2", active ? "bg-dime-primary-50" : "bg-transparent")}
+                      >
+                        <View className={cn("h-7 w-7 items-center justify-center rounded-lg", active ? "bg-dime-primary-500" : "bg-neutral-100")}>
+                          <Icon name={n.icon} size={13} color={active ? "#fff" : "#737373"} />
+                        </View>
+                        <Text className={cn("flex-1 text-[13px]", active ? "font-semibold text-dime-primary-700" : "text-dime-ink-2")}>{n.label}</Text>
+                        {isNotif && (unreadCount ?? 0) > 0 ? (
+                          <View className="h-5 min-w-[20px] items-center justify-center rounded-full bg-dime-primary-500 px-1.5">
+                            <Text className="text-[10px] font-bold text-white">{unreadCount! > 9 ? "9+" : unreadCount}</Text>
+                          </View>
+                        ) : null}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ))}
+              <View className="h-4" />
             </ScrollView>
+
+            {/* Sign out */}
+            <View className="mx-5 mb-2 h-px bg-neutral-100" />
+            <Pressable
+              onPress={handleSignOut}
+              className="mx-3 mb-5 flex-row items-center gap-3 rounded-lg px-3 py-2.5"
+            >
+              <View className="h-7 w-7 items-center justify-center rounded-lg bg-red-50">
+                <Icon name="arrow.right" size={13} color="#EF4444" />
+              </View>
+              <Text className="text-[13px] font-medium text-red-500">Sign out</Text>
+            </Pressable>
           </View>
         ) : null}
         <View className="flex-1">

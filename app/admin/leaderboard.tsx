@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { FlatList, Pressable, Text, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
-import { Badge, Chip, ChipRow, Header, Icon, Screen } from "@/components/ui";
+import { Badge, Chip, ChipRow, Icon, Screen } from "@/components/ui";
 import { supabase, type Tables } from "@/lib/supabase";
 import { rupees } from "@/lib/format";
 
@@ -59,10 +59,16 @@ export default function Leaderboard() {
   }, [restaurants, orders, metric]);
 
   return (
-    <Screen scroll={false}>
-      <Header title="Restaurant Leaderboard" subtitle={`${ranked.length} verified · 60-day window`} />
+    <Screen scroll={false} className="bg-neutral-50">
+      <View className="bg-white px-6 pb-4 pt-5" style={{ borderBottomWidth: 1, borderBottomColor: "rgba(0,0,0,0.04)" }}>
+        <Text className="text-[11px] font-bold uppercase text-dime-ink-4" style={{ letterSpacing: 1.2 }}>Growth</Text>
+        <View className="flex-row items-baseline gap-2">
+          <Text className="text-[24px] font-bold text-dime-ink" style={{ letterSpacing: -0.5 }}>Leaderboard</Text>
+          <Text className="text-[13px] text-dime-ink-4">{ranked.length} verified · 60 days</Text>
+        </View>
+      </View>
 
-      <View className="px-5">
+      <View className="px-5 pt-4">
         <ChipRow>
           <Chip label="By GMV" selected={metric === "gmv"} onPress={() => setMetric("gmv")} />
           <Chip label="By rating" selected={metric === "rating"} onPress={() => setMetric("rating")} />
@@ -76,8 +82,8 @@ export default function Leaderboard() {
         keyExtractor={(r) => r.restaurant.id}
         contentContainerStyle={{ padding: 20, gap: 10, paddingBottom: 120 }}
         renderItem={({ item, index }) => (
-          <View className="flex-row items-center gap-4 rounded-2xl bg-white p-4" style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 12, elevation: 2 }}>
-            <View className={`h-10 w-10 items-center justify-center rounded-full ${index === 0 ? "bg-amber-100" : index === 1 ? "bg-gray-100" : index === 2 ? "bg-orange-100" : "bg-dime-bg-2"}`}>
+          <View className="flex-row items-center gap-4 rounded-2xl bg-white p-4" style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 12, elevation: 2, borderWidth: 1, borderColor: "rgba(0,0,0,0.04)" }}>
+            <View className={`h-10 w-10 items-center justify-center rounded-xl ${index === 0 ? "bg-amber-100" : index === 1 ? "bg-neutral-100" : index === 2 ? "bg-orange-100" : "bg-neutral-50"}`}>
               <Text className={`text-[14px] font-bold ${index < 3 ? "text-amber-700" : "text-dime-ink-2"}`}>{index + 1}</Text>
             </View>
             <View className="flex-1">

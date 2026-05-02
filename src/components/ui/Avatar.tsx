@@ -19,7 +19,7 @@ export function Avatar({
   return (
     <View
       className={cn(
-        "items-center justify-center overflow-hidden bg-dime-primary-100",
+        "items-center justify-center overflow-hidden bg-neutral-100",
         ring && "border-2 border-dime-primary-500",
         className
       )}
@@ -28,7 +28,7 @@ export function Avatar({
       {uri ? (
         <Image source={{ uri }} style={dim} />
       ) : (
-        <Text style={{ fontSize: Math.floor(size * 0.38) }} className="font-semibold text-dime-primary-700">
+        <Text style={{ fontSize: Math.floor(size * 0.38) }} className="font-semibold text-neutral-500">
           {initials(name)}
         </Text>
       )}

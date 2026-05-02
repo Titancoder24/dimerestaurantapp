@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { FlatList, Pressable, Switch, Text, View } from "react-native";
 import { confirm } from "@/lib/confirm";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Avatar, Badge, Button, Chip, ChipRow, Header, Icon, Input, Screen, Sheet, haptic } from "@/components/ui";
+import { Avatar, Badge, Button, Chip, ChipRow, Icon, Input, Screen, Sheet, haptic } from "@/components/ui";
 import { supabase, type Tables } from "@/lib/supabase";
 import { useToast } from "@/store/toast";
 import { timeAgo } from "@/lib/format";
@@ -65,18 +65,23 @@ export default function AdminTeam() {
   });
 
   return (
-    <Screen scroll={false}>
-      <Header
-        title="Team & Roles"
-        subtitle={`${team?.length ?? 0} members`}
-        right={
-          <Pressable onPress={() => setInviting(true)} className="rounded-full bg-dime-primary-500 px-3 py-1.5">
+    <Screen scroll={false} className="bg-neutral-50">
+      <View className="bg-white px-6 pb-4 pt-5" style={{ borderBottomWidth: 1, borderBottomColor: "rgba(0,0,0,0.04)" }}>
+        <View className="flex-row items-center justify-between">
+          <View>
+            <Text className="text-[11px] font-bold uppercase text-dime-ink-4" style={{ letterSpacing: 1.2 }}>Settings</Text>
+            <View className="flex-row items-baseline gap-2">
+              <Text className="text-[24px] font-bold text-dime-ink" style={{ letterSpacing: -0.5 }}>Team & Roles</Text>
+              <Text className="text-[13px] text-dime-ink-4">{team?.length ?? 0} members</Text>
+            </View>
+          </View>
+          <Pressable onPress={() => setInviting(true)} className="rounded-full bg-dime-ink px-4 py-2">
             <Text className="text-[12px] font-bold text-white">+ Invite</Text>
           </Pressable>
-        }
-      />
+        </View>
+      </View>
 
-      <View className="mx-5 rounded-2xl bg-white p-4" style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 12, elevation: 2 }}>
+      <View className="mx-5 mt-4 rounded-2xl bg-white p-4" style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 12, elevation: 2, borderWidth: 1, borderColor: "rgba(0,0,0,0.04)" }}>
         <Text className="text-[11px] font-bold uppercase text-dime-ink-4" style={{ letterSpacing: 1.5 }}>Departments</Text>
         <View className="mt-2 flex-row flex-wrap gap-2">
           {Object.entries(roleMeta).map(([k, m]) => (
@@ -94,7 +99,7 @@ export default function AdminTeam() {
         renderItem={({ item }) => {
           const meta = item.admin_role ? roleMeta[item.admin_role] : null;
           return (
-            <Pressable onPress={() => setEditing(item)} className="flex-row items-center gap-4 rounded-2xl bg-white p-4" style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 12, elevation: 2 }}>
+            <Pressable onPress={() => setEditing(item)} className="flex-row items-center gap-4 rounded-2xl bg-white p-4" style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 12, elevation: 2, borderWidth: 1, borderColor: "rgba(0,0,0,0.04)" }}>
               <Avatar name={item.name ?? item.email} size={40} />
               <View className="flex-1">
                 <Text className="text-[14px] font-bold text-dime-ink">{item.name ?? "—"}</Text>

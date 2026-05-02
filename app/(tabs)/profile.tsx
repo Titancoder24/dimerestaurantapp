@@ -1,117 +1,112 @@
 import { Platform, Pressable, Text, View } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { Avatar, Icon, ListItem, ListSection, Screen } from "@/components/ui";
+import { Avatar, Icon, Screen } from "@/components/ui";
 import { useAuth } from "@/store/auth";
-import { rupees } from "@/lib/format";
+import { haptic } from "@/components/ui/haptics";
+
+const menuItems = [
+  { title: "Food Preferences", icon: "leaf.fill", route: "/preferences" },
+  { title: "Offers & Promos", icon: "gift.fill", route: "/offers" },
+] as const;
+
+const activityItems = [
+  { title: "My Orders", icon: "bag.fill", route: "/orders" },
+  { title: "My Bookings", icon: "calendar", route: "/bookings" },
+  { title: "My Reviews", icon: "star.fill", route: "/my-reviews" },
+  { title: "Favorites", icon: "heart.fill", route: "/favorites" },
+] as const;
+
+const accountItems = [
+  { title: "Help & Support", icon: "questionmark.circle", route: "/support" },
+  { title: "Notifications", icon: "bell.fill", route: "/notifications" },
+] as const;
 
 export default function Profile() {
   const router = useRouter();
   const profile = useAuth((s) => s.profile);
   const signOut = useAuth((s) => s.signOut);
 
-  const tier = profile?.loyalty_tier ?? "silver";
-  const tierConfig = {
-    silver: { bg: ["#F5F5F5", "#E8E8E8"] as const, text: "text-neutral-600", badge: "bg-neutral-100" },
-    gold: { bg: ["#FDF6E3", "#F5E6C4"] as const, text: "text-amber-700", badge: "bg-amber-50" },
-    platinum: { bg: ["#F0F0F5", "#DDDDE5"] as const, text: "text-slate-700", badge: "bg-slate-100" },
-    diamond: { bg: ["#E8F4F8", "#D0E8F0"] as const, text: "text-cyan-700", badge: "bg-cyan-50" },
-  }[tier];
-
-  const iconColor = "#FF6B2C";
-
   return (
     <Screen>
-      <View className="px-5 pb-2 pt-3">
-        <Text className="text-[28px] font-bold text-dime-ink" style={{ letterSpacing: -0.8 }}>
-          Profile
-        </Text>
-      </View>
-
-      <View className="mx-5 overflow-hidden rounded-[22px]" style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.08, shadowRadius: 24, elevation: 5 }}>
-        <LinearGradient
-          colors={["#1A1A1A", "#2D2D2D"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          className="p-6"
+      {/* Profile header */}
+      <View className="bg-white px-4 pb-5 pt-3">
+        <Text className="text-[22px] font-bold text-[#1C1C1E]" style={{ letterSpacing: -0.5 }}>Account</Text>
+        <Pressable
+          onPress={() => { haptic.light(); router.push("/edit-profile"); }}
+          className="mt-4 flex-row items-center gap-3.5"
         >
-          <View className="flex-row items-center gap-4">
-            <Avatar name={profile?.name} uri={profile?.avatar_url} size={60} ring />
-            <View className="flex-1">
-              <Text className="text-[20px] font-bold text-white" style={{ letterSpacing: -0.3 }}>
-                {profile?.name ?? "Guest"}
-              </Text>
-              <Text className="mt-0.5 text-[13px] text-white/50">{profile?.email}</Text>
-              <View className="mt-2 self-start rounded-full bg-white/10 px-3 py-1">
-                <Text className="text-[10px] font-bold uppercase text-dime-gold-light" style={{ letterSpacing: 1 }}>
-                  {tier} member
-                </Text>
-              </View>
-            </View>
+          <Avatar name={profile?.name} uri={profile?.avatar_url} size={52} />
+          <View className="flex-1">
+            <Text className="text-[17px] font-bold text-[#1C1C1E]">{profile?.name ?? "Guest"}</Text>
+            <Text className="mt-0.5 text-[13px] text-[#93959F]">{profile?.email}</Text>
           </View>
-
-          <View className="mt-6 flex-row justify-around border-t border-white/10 pt-5">
-            <Stat label="Points" value={String(profile?.loyalty_points ?? 0)} />
-            <View className="w-px bg-white/10" />
-            <Stat label="Saved" value={rupees(0)} />
-            <View className="w-px bg-white/10" />
-            <Stat label="Tier" value={tier[0]?.toUpperCase() + tier.slice(1)} />
+          <View className="h-8 w-8 items-center justify-center rounded-full bg-[#F2F2F2]">
+            <Icon name="chevron.right" size={12} color="#93959F" />
           </View>
-        </LinearGradient>
+        </Pressable>
       </View>
 
-      <ListSection>
-        <ListItem title="Edit Profile" leading={<Icon name="pencil" size={18} color={iconColor} />} onPress={() => router.push("/edit-profile")} />
-        <ListItem title="Food Preferences" leading={<Icon name="leaf.fill" size={18} color={iconColor} />} onPress={() => router.push("/preferences")} />
-        <ListItem title="Loyalty & Rewards" leading={<Icon name="crown.fill" size={18} color={iconColor} />} onPress={() => router.push("/loyalty")} />
-        <ListItem title="Offers" leading={<Icon name="gift.fill" size={18} color={iconColor} />} onPress={() => router.push("/offers")} />
-      </ListSection>
+      <View className="h-2 bg-[#F2F2F2]" />
 
-      <ListSection title="Activity">
-        <ListItem title="My Orders" leading={<Icon name="bag.fill" size={18} color={iconColor} />} onPress={() => router.push("/orders")} />
-        <ListItem title="My Bookings" leading={<Icon name="calendar" size={18} color={iconColor} />} onPress={() => router.push("/bookings")} />
-        <ListItem title="My Reviews" leading={<Icon name="star.fill" size={18} color={iconColor} />} onPress={() => router.push("/my-reviews")} />
-        <ListItem title="Favorites" leading={<Icon name="heart.fill" size={18} color={iconColor} />} onPress={() => router.push("/favorites")} />
-      </ListSection>
+      <MenuSection items={menuItems} router={router} />
+      <View className="h-2 bg-[#F2F2F2]" />
 
-      <ListSection title="Account">
-        <ListItem title="Refer & Earn" subtitle={profile?.referral_code ?? ""} leading={<Icon name="sparkles" size={18} color={iconColor} />} onPress={() => router.push("/refer")} />
-        <ListItem title="Help & Support" leading={<Icon name="info.circle" size={18} color={iconColor} />} onPress={() => router.push("/support")} />
-        <ListItem title="Notifications" leading={<Icon name="bell.fill" size={18} color={iconColor} />} onPress={() => router.push("/notifications")} />
-      </ListSection>
+      <View className="bg-white">
+        <Text className="px-4 pb-1 pt-4 text-[11px] font-bold uppercase text-[#93959F]" style={{ letterSpacing: 1 }}>Activity</Text>
+      </View>
+      <MenuSection items={activityItems} router={router} />
+      <View className="h-2 bg-[#F2F2F2]" />
 
-      <ListSection>
-        <ListItem
-          title="Sign out"
-          destructive
-          leading={<Icon name="arrow.right" size={18} color="#EF4444" />}
-          chevron={false}
-          onPress={async () => {
-            if (Platform.OS === "web") {
-              if (!window.confirm("Sign out? You can sign back in anytime.")) return;
-            }
-            await signOut();
-            router.replace("/login");
-          }}
-        />
-      </ListSection>
+      <View className="bg-white">
+        <Text className="px-4 pb-1 pt-4 text-[11px] font-bold uppercase text-[#93959F]" style={{ letterSpacing: 1 }}>Account</Text>
+      </View>
+      <MenuSection items={accountItems} router={router} />
+      <View className="h-2 bg-[#F2F2F2]" />
 
-      <View className="mt-8 items-center pb-6">
-        <Text className="text-[11px] text-dime-ink-4">DIME · Made in Bengaluru</Text>
+      {/* Sign out */}
+      <Pressable
+        onPress={async () => {
+          haptic.light();
+          if (Platform.OS === "web") {
+            if (!window.confirm("Sign out? You can sign back in anytime.")) return;
+          }
+          await signOut();
+          router.replace("/login");
+        }}
+        className="flex-row items-center gap-3.5 bg-white px-4 py-4"
+      >
+        <View className="h-9 w-9 items-center justify-center rounded-[10px] bg-[#FFF4F4]">
+          <Icon name="arrow.right" size={15} color="#E23744" />
+        </View>
+        <Text className="text-[15px] font-medium text-[#E23744]">Sign out</Text>
+      </Pressable>
+
+      <View className="h-2 bg-[#F2F2F2]" />
+
+      <View className="items-center bg-white py-6">
+        <Text className="text-[11px] text-[#93959F]">DIME v1.0 · Made in Bengaluru</Text>
       </View>
     </Screen>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function MenuSection({ items, router }: { items: readonly { title: string; icon: string; route: string }[]; router: ReturnType<typeof useRouter> }) {
   return (
-    <View className="items-center">
-      <Text className="text-[22px] font-bold text-white" style={{ letterSpacing: -0.5 }}>
-        {value}
-      </Text>
-      <Text className="mt-0.5 text-[10px] font-bold uppercase text-white/40" style={{ letterSpacing: 1.5 }}>
-        {label}
-      </Text>
+    <View className="bg-white">
+      {items.map((item, i) => (
+        <Pressable
+          key={item.route}
+          onPress={() => { haptic.light(); router.push(item.route as never); }}
+          className="flex-row items-center gap-3.5 px-4 py-3.5"
+          style={i > 0 ? { borderTopWidth: 1, borderTopColor: "#F0F0F0" } : undefined}
+        >
+          <View className="h-9 w-9 items-center justify-center rounded-[10px] bg-[#F8F8F8]">
+            <Icon name={item.icon} size={15} color="#535665" />
+          </View>
+          <Text className="flex-1 text-[15px] font-medium text-[#1C1C1E]">{item.title}</Text>
+          <Icon name="chevron.right" size={12} color="#D4D4D8" />
+        </Pressable>
+      ))}
     </View>
   );
 }

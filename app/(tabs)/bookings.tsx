@@ -22,40 +22,44 @@ export default function Bookings() {
 
   return (
     <Screen scroll={false}>
-      <View className="px-5 pb-2 pt-3">
-        <Text className="text-[28px] font-bold text-dime-ink" style={{ letterSpacing: -0.8 }}>
-          My Bookings
-        </Text>
+      <View className="bg-white px-4 pb-3 pt-3">
+        <Text className="text-[22px] font-bold text-[#1C1C1E]" style={{ letterSpacing: -0.5 }}>My Bookings</Text>
+        <Text className="mt-0.5 text-[13px] text-[#93959F]">{data?.length ?? 0} reservations</Text>
       </View>
+
+      <View className="h-2 bg-[#F2F2F2]" />
 
       <FlatList
         data={data ?? []}
         keyExtractor={(b) => b.id}
-        contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 100 }}
+        className="bg-white"
+        contentContainerStyle={{ paddingBottom: 100 }}
+        ItemSeparatorComponent={() => <View className="mx-4 h-px bg-[#F0F0F0]" />}
         renderItem={({ item }) => {
           const st = statusTone(item.status);
           return (
             <Pressable
               onPress={() => router.push({ pathname: "/booking/[id]", params: { id: item.id } })}
-              className="flex-row gap-4 overflow-hidden rounded-2xl bg-white p-4"
-              style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 12, elevation: 2 }}
+              className="flex-row gap-3 px-4 py-3.5"
             >
-              <Image source={{ uri: item.restaurants.cover_image_url ?? "" }} className="h-[88px] w-[88px] rounded-xl" />
+              <View className="overflow-hidden rounded-[12px]">
+                <Image source={{ uri: item.restaurants.cover_image_url ?? "" }} className="h-[76px] w-[76px]" resizeMode="cover" />
+              </View>
               <View className="flex-1 justify-center">
-                <Text numberOfLines={1} className="text-[16px] font-bold text-dime-ink" style={{ letterSpacing: -0.2 }}>
+                <Text numberOfLines={1} className="text-[15px] font-bold text-[#1C1C1E]" style={{ letterSpacing: -0.2 }}>
                   {item.restaurants.name}
                 </Text>
-                <View className="mt-1.5 flex-row items-center gap-1.5">
-                  <Icon name="calendar" size={13} color="#8A8A8A" />
-                  <Text className="text-[13px] text-dime-ink-2">{fullDate(item.date)} · {time12(item.time)}</Text>
+                <View className="mt-1 flex-row items-center gap-1">
+                  <Icon name="calendar" size={11} color="#93959F" />
+                  <Text className="text-[12px] text-[#535665]">{fullDate(item.date)} · {time12(item.time)}</Text>
                 </View>
-                <Text className="mt-0.5 text-[13px] text-dime-ink-3">{item.guests} guests · {item.seating_preference}</Text>
-                <View className="mt-2">
+                <Text className="mt-0.5 text-[12px] text-[#93959F]">{item.guests} guests · {item.seating_preference}</Text>
+                <View className="mt-1.5">
                   <Badge tone={st.tone} label={st.label} />
                 </View>
               </View>
               <View className="justify-center">
-                <Icon name="chevron.right" size={16} color="#BFBFBF" />
+                <Icon name="chevron.right" size={13} color="#D4D4D8" />
               </View>
             </Pressable>
           );

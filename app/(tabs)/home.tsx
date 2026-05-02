@@ -2,34 +2,63 @@ import { useMemo } from "react";
 import { FlatList, Image, Pressable, Text, useWindowDimensions, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { Avatar, Card, Header, Icon, Screen, haptic } from "@/components/ui";
+import { Avatar, DottedUnderline, Icon, Screen, haptic } from "@/components/ui";
 import { useAuth } from "@/store/auth";
-import { useRestaurants, useBanners, useCollections, useActiveOffers, useMyOrders, useMoodCategories } from "@/hooks/queries";
+import {
+  useRestaurants,
+  useCollections,
+  useMyOrders,
+  useMoodCategories,
+  type DineoutRestaurant,
+} from "@/hooks/queries";
 import { useUnreadNotificationCount } from "@/hooks/useNotificationListener";
-import { RestaurantCard } from "@/components/restaurant/RestaurantCard";
+import { HeroRestaurantCard } from "@/components/restaurant/HeroRestaurantCard";
+import { DineoutCard } from "@/components/restaurant/DineoutCard";
+import { MoodTile } from "@/components/restaurant/MoodTile";
 import { LiveAdsRail } from "@/components/poster/LiveAdsRail";
-import { greeting, rupees } from "@/lib/format";
-import { cn } from "@/lib/cn";
+import { rupees } from "@/lib/format";
+import { surface, brand } from "@/lib/visual";
 
-const fallbackIcons: Record<string, string> = {
-  quick: "bolt.fill",
-  date: "heart.fill",
-  family: "person.3.fill",
-  business: "briefcase.fill",
-  late: "moon.fill",
-  healthy: "leaf.fill",
-  celebrate: "party.popper.fill",
-};
+function SectionTitle({
+  eyebrow,
+  title,
+  trailing,
+  onPress,
+}: {
+  eyebrow?: string;
+  title: string;
+  trailing?: string;
+  onPress?: () => void;
+}) {
+  return (
+    <View style={{ paddingHorizontal: 20, paddingTop: 24, paddingBottom: 12 }}>
+      {eyebrow ? (
+        <Text style={{ fontSize: 10, fontWeight: "800", color: brand.orange500, letterSpacing: 1.6 }}>
+          {eyebrow}
+        </Text>
+      ) : null}
+      <View style={{ marginTop: eyebrow ? 4 : 0, flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" }}>
+        <Text style={{ fontSize: 22, fontWeight: "800", color: surface.ink, letterSpacing: -0.6 }}>
+          {title}
+        </Text>
+        {trailing ? (
+          <Pressable onPress={onPress} hitSlop={8} style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
+            <Text style={{ fontSize: 13, fontWeight: "700", color: brand.orange500 }}>{trailing}</Text>
+            <Icon name="chevron.right" size={11} color={brand.orange500} />
+          </Pressable>
+        ) : null}
+      </View>
+    </View>
+  );
+}
 
 export default function Home() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const profile = useAuth((s) => s.profile);
-  const { data: restaurants } = useRestaurants({ featured: true });
+  const { data: featured } = useRestaurants({ featured: true });
   const { data: allRestaurants } = useRestaurants();
-  const { data: banners } = useBanners();
   const { data: collections } = useCollections();
-  const { data: offers } = useActiveOffers(null);
   const { data: orders } = useMyOrders();
   const { data: moods } = useMoodCategories();
   const unreadNotifications = useUnreadNotificationCount();
@@ -38,257 +67,307 @@ export default function Home() {
   const lastOrder = useMemo(() => orders?.find((o) => o.status === "paid"), [orders]);
 
   const isMobile = width < 500;
-  const cardWidth = isMobile ? width * 0.6 : 260;
-  const collectionWidth = isMobile ? width * 0.7 : 280;
-  const spotlightWidth = isMobile ? width - 60 : 320;
+  const collectionWidth = isMobile ? width * 0.74 : 300;
+  const spotlightWidth = isMobile ? width - 40 : 320;
 
-  const tierProgress = (() => {
-    const pts = profile?.loyalty_points ?? 0;
-    if (pts >= 5000) return { tier: "Diamond", next: 5000, progress: 1, toNext: 0 };
-    if (pts >= 2000) return { tier: "Platinum", next: 5000, progress: (pts - 2000) / 3000, toNext: 5000 - pts };
-    if (pts >= 500) return { tier: "Gold", next: 2000, progress: (pts - 500) / 1500, toNext: 2000 - pts };
-    return { tier: "Silver", next: 500, progress: pts / 500, toNext: 500 - pts };
-  })();
+  const heroPick = (featured?.[0] ?? allRestaurants?.[0]) as DineoutRestaurant | undefined;
+  const popular = (allRestaurants ?? []).filter((r) => r.id !== heroPick?.id).slice(0, 4) as DineoutRestaurant[];
+  const topPicks = (featured ?? []).filter((r) => r.id !== heroPick?.id) as DineoutRestaurant[];
+
+  const firstName = profile?.name?.split(" ")[0] ?? "there";
 
   return (
     <Screen>
-      {/* Header */}
-      <View className="flex-row items-center justify-between px-5 pb-2 pt-3">
-        <View className="flex-row items-center gap-3">
-          <Avatar name={profile?.name} uri={profile?.avatar_url} size={42} ring />
-          <View>
-            <Text className="text-[12px] font-semibold uppercase text-dime-ink-3" style={{ letterSpacing: 1.5 }}>
-              {greeting()}
+      {/* ─────────────────── Hero header ─────────────────── */}
+      <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16 }}>
+        {/* Top row: location + actions */}
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <Pressable
+            onPress={() => { haptic.light(); router.push("/discover"); }}
+            style={{ flex: 1, paddingRight: 12 }}
+          >
+            <Text style={{ fontSize: 10, fontWeight: "800", color: brand.orange500, letterSpacing: 1.6 }}>
+              DELIVER TO
             </Text>
-            <Text className="text-[20px] font-bold text-dime-ink" style={{ letterSpacing: -0.5 }}>
-              {profile?.name?.split(" ")[0] ?? "there"}
+            <View style={{ marginTop: 2, flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Icon name="mappin" size={14} color={surface.ink} />
+              <DottedUnderline textStyle={{ fontSize: 17, fontWeight: "800", color: surface.ink, letterSpacing: -0.4 }}>
+                Bangalore
+              </DottedUnderline>
+              <Icon name="chevron.down" size={11} color={surface.ink2} />
+            </View>
+            <Text numberOfLines={1} style={{ marginTop: 2, fontSize: 12, color: surface.ink3 }}>
+              Indiranagar · 100ft Road
             </Text>
+          </Pressable>
+
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <Pressable
+              onPress={() => { haptic.light(); router.push("/notifications"); }}
+              style={{
+                position: "relative",
+                width: 42, height: 42, borderRadius: 21,
+                backgroundColor: "#fff",
+                borderWidth: 1, borderColor: surface.hairline,
+                alignItems: "center", justifyContent: "center",
+              }}
+            >
+              <Icon name="bell.fill" size={17} color={surface.ink} />
+              {unreadNotifications > 0 ? (
+                <View
+                  style={{
+                    position: "absolute", top: -2, right: -2,
+                    height: 18, minWidth: 18, paddingHorizontal: 4,
+                    borderRadius: 9,
+                    backgroundColor: brand.orange500,
+                    alignItems: "center", justifyContent: "center",
+                    borderWidth: 2, borderColor: "#fff",
+                  }}
+                >
+                  <Text style={{ fontSize: 9, fontWeight: "800", color: "#fff" }}>
+                    {unreadNotifications > 9 ? "9+" : unreadNotifications}
+                  </Text>
+                </View>
+              ) : null}
+            </Pressable>
+            <Pressable onPress={() => { haptic.light(); router.push("/profile"); }}>
+              <Avatar name={profile?.name} uri={profile?.avatar_url} size={42} />
+            </Pressable>
           </View>
         </View>
+
+        {/* Editorial title */}
+        <View style={{ marginTop: 22 }}>
+          <Text style={{ fontSize: 28, fontWeight: "800", color: surface.ink, letterSpacing: -1, lineHeight: 32 }}>
+            Hey {firstName},
+          </Text>
+          <Text style={{ marginTop: 2, fontSize: 28, fontWeight: "300", color: surface.ink2, letterSpacing: -0.8, lineHeight: 32 }}>
+            what would you like to eat?
+          </Text>
+        </View>
+
+        {/* Search */}
         <Pressable
-          onPress={() => { haptic.light(); router.push("/notifications"); }}
-          className="relative h-11 w-11 items-center justify-center rounded-full bg-dime-bg-2"
+          onPress={() => router.push("/discover")}
+          style={{
+            marginTop: 18,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 12,
+            paddingHorizontal: 16,
+            paddingVertical: 14,
+            backgroundColor: "#fff",
+            borderRadius: 16,
+            borderWidth: 1.5,
+            borderColor: "#F0E6DC",
+            shadowColor: "#FC8019",
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: 0.06,
+            shadowRadius: 14,
+            elevation: 2,
+          }}
         >
-          <Icon name="bell.fill" size={18} color="#0F0F0F" />
-          {unreadNotifications > 0 ? (
-            <View className="absolute -right-0.5 -top-0.5 h-[18px] min-w-[18px] items-center justify-center rounded-full bg-dime-primary-500 px-1">
-              <Text className="text-[9px] font-bold text-white">
-                {unreadNotifications > 9 ? "9+" : unreadNotifications}
-              </Text>
-            </View>
-          ) : null}
+          <View
+            style={{
+              width: 32, height: 32, borderRadius: 10,
+              backgroundColor: "#FFF1E0",
+              alignItems: "center", justifyContent: "center",
+            }}
+          >
+            <Icon name="magnifyingglass" size={15} color={brand.orange500} />
+          </View>
+          <Text style={{ flex: 1, fontSize: 14, color: surface.ink2, fontWeight: "500" }}>
+            Try <Text style={{ color: surface.ink, fontWeight: "700" }}>"sushi"</Text>, <Text style={{ color: surface.ink, fontWeight: "700" }}>"date night"</Text>
+          </Text>
+          <View
+            style={{
+              width: 32, height: 32, borderRadius: 10,
+              backgroundColor: "#F8F8F8",
+              alignItems: "center", justifyContent: "center",
+            }}
+          >
+            <Icon name="slider.horizontal.3" size={14} color={surface.ink} />
+          </View>
         </Pressable>
       </View>
 
-      {/* Active order banner */}
+      {/* Active order */}
       {activeOrder ? (
-        <Pressable
-          onPress={() => router.push({ pathname: "/order/[id]", params: { id: activeOrder.id } })}
-          className="mx-5 mt-3 flex-row items-center gap-3 rounded-2xl bg-dime-ink p-4"
-        >
-          <View className="h-10 w-10 items-center justify-center rounded-full bg-white/15">
-            <Icon
-              name={activeOrder.status === "ready" ? "checkmark.circle.fill" : activeOrder.status === "preparing" ? "flame.fill" : "bag.fill"}
-              size={18}
-              color="#fff"
-            />
-          </View>
-          <View className="flex-1">
-            <Text className="text-[14px] font-bold text-white">
-              {activeOrder.status === "received" ? "Order received" :
-               activeOrder.status === "preparing" ? "Kitchen is cooking" :
-               activeOrder.status === "ready" ? "Your food is ready!" :
-               activeOrder.status === "served" ? "Enjoy your meal" :
-               "Order in progress"}
-            </Text>
-            <Text className="text-[12px] text-white/60">{activeOrder.order_number} · Tap to track</Text>
-          </View>
-          <Icon name="chevron.right" size={16} color="rgba(255,255,255,0.5)" />
-        </Pressable>
+        <View style={{ paddingHorizontal: 20, paddingBottom: 6 }}>
+          <Pressable
+            onPress={() => router.push({ pathname: "/order/[id]", params: { id: activeOrder.id } })}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 12,
+              padding: 14,
+              borderRadius: 18,
+              backgroundColor: "#FFF4EF",
+              borderWidth: 1,
+              borderColor: "#FFD9C5",
+            }}
+          >
+            <View
+              style={{
+                width: 44, height: 44, borderRadius: 14,
+                backgroundColor: brand.orange500,
+                alignItems: "center", justifyContent: "center",
+              }}
+            >
+              <Icon
+                name={activeOrder.status === "ready" ? "checkmark.circle.fill" : activeOrder.status === "preparing" ? "flame.fill" : "bag.fill"}
+                size={18} color="#fff"
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: "800", color: surface.ink }}>
+                {activeOrder.status === "received" ? "Order placed" :
+                 activeOrder.status === "preparing" ? "Preparing your food" :
+                 activeOrder.status === "ready" ? "Your food is ready!" :
+                 activeOrder.status === "served" ? "Enjoy your meal" : "Order in progress"}
+              </Text>
+              <Text style={{ marginTop: 1, fontSize: 12, color: surface.ink3 }}>
+                {activeOrder.order_number} · Tap to track →
+              </Text>
+            </View>
+          </Pressable>
+        </View>
       ) : null}
 
-      {/* Loyalty card */}
-      <View className="mt-5 px-5">
-        <Pressable
-          onPress={() => { haptic.light(); router.push("/loyalty"); }}
-          className="overflow-hidden rounded-[22px]"
-          style={{ shadowColor: "#C9A96E", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 5 }}
-        >
-          <LinearGradient
-            colors={["#1A1A1A", "#2D2D2D"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            className="p-5"
-          >
-            <View className="flex-row items-start justify-between">
-              <View>
-                <Text className="text-[10px] font-bold uppercase text-dime-gold" style={{ letterSpacing: 2 }}>
-                  DIME Rewards
-                </Text>
-                <Text className="mt-2 text-[36px] font-bold text-white" style={{ letterSpacing: -1 }}>
-                  {profile?.loyalty_points ?? 0}
-                </Text>
-                <View className="mt-1.5 self-start rounded-full bg-white/10 px-3 py-1">
-                  <Text className="text-[10px] font-bold uppercase text-dime-gold-light" style={{ letterSpacing: 1 }}>
-                    {tierProgress.tier} Member
-                  </Text>
-                </View>
-              </View>
-              <View className="h-12 w-12 items-center justify-center rounded-full bg-dime-gold/20">
-                <Icon name="crown.fill" size={22} color="#C9A96E" />
-              </View>
-            </View>
-            <View className="mt-5">
-              <View className="h-1 w-full overflow-hidden rounded-full bg-white/10">
-                <View
-                  className="h-full rounded-full bg-dime-gold"
-                  style={{ width: `${Math.min(100, Math.max(4, tierProgress.progress * 100))}%` }}
-                />
-              </View>
-              <Text className="mt-2 text-[11px] text-white/50">
-                {tierProgress.toNext > 0 ? `${tierProgress.toNext} points to next tier` : "You've reached the top!"}
-              </Text>
-            </View>
-          </LinearGradient>
-        </Pressable>
-      </View>
+      {/* ─────────────────── Hero pick (editorial) ─────────────────── */}
+      {heroPick ? (
+        <View style={{ paddingHorizontal: 20, paddingTop: 14 }}>
+          <HeroRestaurantCard restaurant={heroPick} eyebrow="TONIGHT'S PICK" />
+        </View>
+      ) : null}
 
-      {/* Food Mood — dynamic icons from admin */}
-      <View className="mt-8">
-        <Text className="mb-4 px-5 text-[11px] font-bold uppercase text-dime-ink-3" style={{ letterSpacing: 1.5 }}>
-          What are you in the mood for?
-        </Text>
-        <FlatList
-          horizontal
-          data={moods ?? []}
-          keyExtractor={(m) => m.key}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 20 }}
-          renderItem={({ item }) => (
-            <Pressable
-              onPress={() => { haptic.light(); router.push({ pathname: "/discover", params: { q: item.query } }); }}
-              className="mr-4 items-center"
-              style={({ pressed }) => (pressed ? { transform: [{ scale: 0.95 }] } : undefined)}
-            >
-              <View
-                className="h-[64px] w-[64px] items-center justify-center overflow-hidden rounded-2xl bg-dime-bg-2"
-                style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 }}
-              >
-                {item.icon_url ? (
-                  <Image
-                    source={{ uri: item.icon_url }}
-                    className="h-[40px] w-[40px]"
-                    resizeMode="contain"
-                  />
-                ) : (
-                  <Icon
-                    name={fallbackIcons[item.key] ?? "questionmark.circle"}
-                    size={26}
-                    color="#FF6B2C"
-                  />
-                )}
-              </View>
-              <Text className="mt-2 w-[68px] text-center text-[11px] font-bold text-dime-ink-2">
-                {item.title}
-              </Text>
-            </Pressable>
-          )}
-        />
-      </View>
-
-      {/* Offers carousel */}
-      {offers && offers.length > 0 ? (
-        <View className="mt-8">
-          <SectionHeader title="Exclusive Offers" action="See all" onAction={() => router.push("/offers")} />
+      {/* ─────────────────── By mood ─────────────────── */}
+      {moods && moods.length > 0 ? (
+        <View>
+          <SectionTitle eyebrow="BY MOOD" title="What are you in the mood for?" />
           <FlatList
             horizontal
-            data={offers}
-            keyExtractor={(o) => o.id}
+            data={moods}
+            keyExtractor={(m) => m.key}
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 20 }}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 6, gap: 10 }}
             renderItem={({ item }) => (
-              <View
-                className="mr-3 overflow-hidden rounded-2xl bg-white p-4"
-                style={{ width: cardWidth, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 12, elevation: 2 }}
-              >
-                <View className="flex-row items-center justify-between">
-                  <View className="rounded-full bg-dime-primary-50 px-3 py-1">
-                    <Text className="text-[11px] font-bold text-dime-primary-600" style={{ letterSpacing: 0.5 }}>
-                      {item.promo_code ?? "OFFER"}
-                    </Text>
-                  </View>
-                  <Text className="text-[20px] font-bold text-dime-primary-500">
-                    {item.discount_type === "percentage" ? `${item.discount_value}%` : `₹${item.discount_value}`}
-                  </Text>
-                </View>
-                <Text className="mt-3 text-[15px] font-bold text-dime-ink" style={{ letterSpacing: -0.2 }}>
-                  {item.title}
-                </Text>
-                <Text numberOfLines={2} className="mt-1 text-[12px] text-dime-ink-3">
-                  {item.description}
-                </Text>
-                <Text className="mt-3 text-[11px] text-dime-ink-4">Min {rupees(item.min_order_amount)}</Text>
+              <MoodTile
+                moodKey={item.key}
+                title={item.title}
+                iconUrl={item.icon_url}
+                onPress={() => router.push({ pathname: "/discover", params: { q: item.query } })}
+              />
+            )}
+          />
+        </View>
+      ) : null}
+
+      {/* ─────────────────── Popular nearby ─────────────────── */}
+      <View>
+        <SectionTitle
+          eyebrow="POPULAR NEARBY"
+          title="Loved by your neighbourhood"
+          trailing="See all"
+          onPress={() => router.push("/discover")}
+        />
+        <View style={{ paddingHorizontal: 20, gap: 14, paddingBottom: 6 }}>
+          {popular.map((r) => (
+            <DineoutCard key={r.id} restaurant={r} />
+          ))}
+        </View>
+      </View>
+
+      {/* ─────────────────── Spotlight (ads) ─────────────────── */}
+      <View>
+        <View
+          style={{
+            paddingHorizontal: 20,
+            paddingTop: 28,
+            paddingBottom: 12,
+            flexDirection: "row",
+            alignItems: "flex-end",
+            justifyContent: "space-between",
+          }}
+        >
+          <View>
+            <Text style={{ fontSize: 10, fontWeight: "800", color: surface.ink3, letterSpacing: 1.6 }}>SPOTLIGHT</Text>
+            <Text style={{ marginTop: 4, fontSize: 22, fontWeight: "800", color: surface.ink, letterSpacing: -0.6 }}>
+              Worth a look
+            </Text>
+          </View>
+          <View style={{ borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, backgroundColor: "#F2F2F2" }}>
+            <Text style={{ fontSize: 9, fontWeight: "800", color: surface.ink3, letterSpacing: 0.5 }}>AD</Text>
+          </View>
+        </View>
+        <LiveAdsRail placement="home_banner" limit={6} mobileWidth={spotlightWidth} />
+      </View>
+
+      {/* ─────────────────── Featured restaurants horizontal ─────────────────── */}
+      {topPicks.length > 0 ? (
+        <View>
+          <SectionTitle
+            eyebrow="EDITOR'S PICKS"
+            title="Featured on DIME"
+            trailing="See all"
+            onPress={() => router.push({ pathname: "/discover", params: { q: "fine_dine" } })}
+          />
+          <FlatList
+            horizontal
+            data={topPicks.slice(0, 6)}
+            keyExtractor={(r) => r.id}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 6, gap: 14 }}
+            renderItem={({ item }) => (
+              <View style={{ width: 240 }}>
+                <DineoutCard restaurant={item} />
               </View>
             )}
           />
         </View>
       ) : null}
 
-      {/* Spotlight / Ads — mobile optimized */}
-      <View className="mt-8">
-        <SectionHeader title="Spotlight" trailing={
-          <Text className="text-[9px] font-bold uppercase text-dime-ink-4" style={{ letterSpacing: 1.5 }}>Sponsored</Text>
-        } />
-        <LiveAdsRail placement="home_banner" limit={6} mobileWidth={spotlightWidth} />
-      </View>
-
-      {/* Featured Restaurants — responsive grid */}
-      <View className="mt-8 px-5">
-        <SectionHeader title="Featured Restaurants" padded={false} />
-        {isMobile ? (
-          <View className="mt-1 gap-4">
-            {restaurants?.map((r) => (
-              <RestaurantCard key={r.id} restaurant={r} />
-            ))}
-          </View>
-        ) : (
-          <View className="mt-1 flex-row flex-wrap gap-4">
-            {restaurants?.map((r) => (
-              <View key={r.id} className="w-[48%]">
-                <RestaurantCard restaurant={r} />
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
-
-      {/* Curated Collections */}
+      {/* ─────────────────── Curated collections ─────────────────── */}
       {collections && collections.length > 0 ? (
-        <View className="mt-8">
-          <SectionHeader title="Curated for You" />
+        <View>
+          <SectionTitle eyebrow="CURATED" title="Made for the moment" />
           <FlatList
             horizontal
             data={collections}
             keyExtractor={(c) => c.id}
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 20 }}
+            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 6, gap: 12 }}
             renderItem={({ item }) => (
               <Pressable
-                className="mr-4 overflow-hidden rounded-2xl bg-white"
-                style={{ width: collectionWidth, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 12, elevation: 2 }}
+                onPress={() => { haptic.light(); router.push({ pathname: "/discover", params: { q: item.name } }); }}
+                style={{
+                  width: collectionWidth,
+                  height: 200,
+                  borderRadius: 22,
+                  overflow: "hidden",
+                  borderWidth: 1,
+                  borderColor: surface.hairline,
+                }}
               >
-                <Image source={{ uri: item.cover_image_url ?? "" }} className="h-40 w-full" resizeMode="cover" />
+                <Image source={{ uri: item.cover_image_url ?? "" }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
                 <LinearGradient
-                  colors={["transparent", "rgba(0,0,0,0.6)"]}
-                  className="absolute inset-x-0 bottom-0 h-24 justify-end p-4"
-                  style={{ top: undefined }}
+                  colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.3)", "rgba(0,0,0,0.85)"]}
+                  style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, justifyContent: "flex-end" }}
+                  locations={[0, 0.4, 1]}
                 >
-                  <Text className="text-[16px] font-bold text-white" style={{ letterSpacing: -0.3 }}>
-                    {item.name}
-                  </Text>
-                  <Text numberOfLines={1} className="mt-0.5 text-[12px] text-white/70">
-                    {item.description}
-                  </Text>
+                  <View style={{ padding: 16 }}>
+                    <Text style={{ fontSize: 10, fontWeight: "800", color: "rgba(255,255,255,0.85)", letterSpacing: 1.5 }}>
+                      COLLECTION
+                    </Text>
+                    <Text style={{ marginTop: 4, fontSize: 19, fontWeight: "800", color: "#fff", letterSpacing: -0.4 }}>
+                      {item.name}
+                    </Text>
+                    {item.description ? (
+                      <Text numberOfLines={1} style={{ marginTop: 2, fontSize: 12, color: "rgba(255,255,255,0.8)", fontWeight: "500" }}>
+                        {item.description}
+                      </Text>
+                    ) : null}
+                  </View>
                 </LinearGradient>
               </Pressable>
             )}
@@ -296,62 +375,48 @@ export default function Home() {
         </View>
       ) : null}
 
-      {/* Popular nearby */}
-      <View className="mt-8 px-5">
-        <SectionHeader title="Popular Nearby" padded={false} />
-        <View className="mt-1 gap-4">
-          {allRestaurants?.slice(0, 4).map((r) => (
-            <RestaurantCard key={r.id} restaurant={r} />
-          ))}
-        </View>
-      </View>
-
-      {/* Reorder */}
+      {/* ─────────────────── Reorder ─────────────────── */}
       {lastOrder ? (
-        <View className="mt-8 px-5 pb-6">
-          <SectionHeader title="Reorder" padded={false} />
-          <View
-            className="mt-1 flex-row items-center gap-4 rounded-2xl bg-white p-4"
-            style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 8, elevation: 1 }}
+        <View style={{ paddingHorizontal: 20, paddingTop: 28 }}>
+          <Pressable
+            onPress={() => router.push({ pathname: "/order/[id]", params: { id: lastOrder.id } })}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 14,
+              padding: 14,
+              borderRadius: 18,
+              backgroundColor: "#fff",
+              borderWidth: 1,
+              borderColor: surface.hairline,
+            }}
           >
-            <View className="h-12 w-12 items-center justify-center rounded-full bg-dime-bg-2">
-              <Icon name="arrow.counterclockwise" size={18} color="#8A8A8A" />
+            <View
+              style={{
+                width: 48, height: 48, borderRadius: 14,
+                backgroundColor: "#F8F8F8",
+                alignItems: "center", justifyContent: "center",
+              }}
+            >
+              <Icon name="arrow.counterclockwise" size={18} color={surface.ink} />
             </View>
-            <View className="flex-1">
-              <Text className="text-[15px] font-bold text-dime-ink">{lastOrder.order_number}</Text>
-              <Text className="mt-0.5 text-[13px] text-dime-ink-3">{rupees(lastOrder.total_amount)}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 10, fontWeight: "800", color: surface.ink3, letterSpacing: 1.4 }}>
+                ORDER AGAIN
+              </Text>
+              <Text style={{ marginTop: 2, fontSize: 15, fontWeight: "800", color: surface.ink, letterSpacing: -0.3 }}>
+                {lastOrder.order_number}
+              </Text>
+              <Text style={{ marginTop: 1, fontSize: 12, color: surface.ink3 }}>
+                {rupees(lastOrder.total_amount)} · last ordered
+              </Text>
             </View>
-            <Icon name="chevron.right" size={14} color="#BFBFBF" />
-          </View>
+            <Icon name="chevron.right" size={14} color={surface.ink3} />
+          </Pressable>
         </View>
       ) : null}
-    </Screen>
-  );
-}
 
-function SectionHeader({
-  title,
-  action,
-  onAction,
-  trailing,
-  padded = true,
-}: {
-  title: string;
-  action?: string;
-  onAction?: () => void;
-  trailing?: React.ReactNode;
-  padded?: boolean;
-}) {
-  return (
-    <View className={cn("mb-4 flex-row items-center justify-between", padded && "px-5")}>
-      <Text className="text-[20px] font-bold text-dime-ink" style={{ letterSpacing: -0.5 }}>
-        {title}
-      </Text>
-      {action ? (
-        <Pressable onPress={onAction}>
-          <Text className="text-[13px] font-semibold text-dime-primary-500">{action}</Text>
-        </Pressable>
-      ) : trailing ?? null}
-    </View>
+      <View style={{ height: 32 }} />
+    </Screen>
   );
 }

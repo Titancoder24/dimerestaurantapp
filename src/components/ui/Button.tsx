@@ -4,11 +4,13 @@ import { haptic } from "./haptics";
 
 type Variant = "primary" | "secondary" | "ghost" | "destructive" | "premium";
 type Size = "sm" | "md" | "lg";
+type Tone = "default" | "contrast";
 
 type Props = PressableProps & {
   label: string;
   variant?: Variant;
   size?: Size;
+  tone?: Tone;
   loading?: boolean;
   leading?: React.ReactNode;
   trailing?: React.ReactNode;
@@ -32,6 +34,7 @@ export function Button({
   label,
   variant = "primary",
   size = "md",
+  tone = "default",
   loading,
   disabled,
   leading,
@@ -41,20 +44,33 @@ export function Button({
   onPress,
   ...rest
 }: Props) {
-  const v = {
-    primary: "bg-dime-primary-500 active:bg-dime-primary-600",
-    secondary: "bg-dime-bg-2 border border-dime-border active:bg-dime-bg-grouped",
-    ghost: "bg-transparent active:bg-dime-bg-2",
-    destructive: "bg-dime-danger active:opacity-90",
-    premium: "bg-dime-ink active:opacity-90",
-  }[variant];
-  const tv = {
-    primary: "text-white",
-    secondary: "text-dime-ink",
-    ghost: "text-dime-primary-600",
-    destructive: "text-white",
-    premium: "text-white",
-  }[variant];
+  // Light-mode app: contrast tone fills the button with a premium
+  // near-black so it sits with confidence on white surfaces.
+  const isContrast = tone === "contrast";
+
+  const v = isContrast
+    ? "bg-[#0E0D0C] active:opacity-90"
+    : {
+        primary: "bg-dime-primary-500 active:bg-dime-primary-600",
+        secondary: "bg-white border border-dime-border-strong active:bg-dime-bg-2",
+        ghost: "bg-transparent active:bg-dime-bg-2",
+        destructive: "bg-dime-danger active:opacity-90",
+        premium: "bg-dime-orange-500 active:bg-dime-orange-600",
+      }[variant];
+
+  const tv = isContrast
+    ? "text-white"
+    : {
+        primary: "text-white",
+        secondary: "text-dime-ink",
+        ghost: "text-dime-ink",
+        destructive: "text-white",
+        premium: "text-white",
+      }[variant];
+
+  const spinnerColor = isContrast
+    ? "#fff"
+    : variant === "secondary" || variant === "ghost" ? "#FC8019" : "#fff";
 
   const isDisabled = disabled || loading;
 
@@ -70,7 +86,7 @@ export function Button({
       style={({ pressed }) => (pressed ? { transform: [{ scale: 0.98 }] } : undefined)}
     >
       {loading ? (
-        <ActivityIndicator color={variant === "secondary" || variant === "ghost" ? "#FF6B2C" : "#fff"} />
+        <ActivityIndicator color={spinnerColor} />
       ) : (
         <View className="flex-row items-center justify-center gap-2.5">
           {leading}

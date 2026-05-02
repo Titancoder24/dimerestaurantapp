@@ -24,7 +24,7 @@ export const Input = forwardRef<TextInput, Props>(function Input(
       ) : null}
       <View
         className={cn(
-          "flex-row items-center rounded-2xl border bg-dime-bg-2 px-4",
+          "flex-row items-center rounded-xl border bg-dime-bg-2 px-4",
           error ? "border-dime-danger" : "border-transparent",
           "min-h-[52px]"
         )}

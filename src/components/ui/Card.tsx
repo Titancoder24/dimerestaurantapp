@@ -10,8 +10,10 @@ export function Card({ className, children, ...rest }: ViewProps & { className?:
           shadowColor: "#000",
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: 0.04,
-          shadowRadius: 12,
+          shadowRadius: 16,
           elevation: 2,
+          borderWidth: 1,
+          borderColor: 'rgba(0,0,0,0.03)',
         },
         rest.style,
       ]}

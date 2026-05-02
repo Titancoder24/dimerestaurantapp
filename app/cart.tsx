@@ -109,14 +109,15 @@ export default function Cart() {
     return (
       <Screen scroll={false}>
         <Header title="Your Cart" back />
-        <View className="flex-1 items-center justify-center p-8">
-          <View className="mb-4 h-20 w-20 items-center justify-center rounded-full bg-dime-bg-2">
-            <Icon name="cart.fill" size={34} color="#BFBFBF" />
+        <View className="h-2 bg-[#F2F2F2]" />
+        <View className="flex-1 items-center justify-center bg-white p-8">
+          <View className="mb-4 h-20 w-20 items-center justify-center rounded-full bg-[#F2F2F2]">
+            <Icon name="cart.fill" size={32} color="#D4D4D8" />
           </View>
-          <Text className="text-[20px] font-bold text-dime-ink" style={{ letterSpacing: -0.3 }}>
+          <Text className="text-[18px] font-bold text-[#1C1C1E]" style={{ letterSpacing: -0.3 }}>
             Your cart is empty
           </Text>
-          <Text className="mt-1 text-center text-[14px] text-dime-ink-3">Add items from a menu to get started.</Text>
+          <Text className="mt-1 text-center text-[14px] text-[#93959F]">Add items from a menu to get started.</Text>
           <View className="mt-6">
             <Button label="Discover restaurants" onPress={() => router.replace("/discover")} />
           </View>
@@ -129,18 +130,25 @@ export default function Cart() {
     <Screen>
       <Header title={cart.session?.restaurantName ?? "Your cart"} subtitle={`${cart.items.length} items`} back />
 
-      <View className="mx-5 overflow-hidden rounded-2xl bg-white" style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 12, elevation: 2 }}>
+      <View className="h-2 bg-[#F2F2F2]" />
+
+      {/* Cart items */}
+      <View className="bg-white">
         {cart.items.map((item, idx) => {
           const addonSum = item.addons.reduce((s, a) => s + (a.price || 0), 0);
           const line = (item.unitPrice + addonSum) * item.quantity;
           return (
-            <View key={item.cartId} className={`px-4 py-3.5 ${idx > 0 ? "border-t border-neutral-50" : ""}`}>
+            <View
+              key={item.cartId}
+              className="px-4 py-3.5"
+              style={idx > 0 ? { borderTopWidth: 1, borderTopColor: "#F0F0F0" } : undefined}
+            >
               <View className="flex-row items-center gap-3">
                 <View className="flex-1">
-                  <Text numberOfLines={1} className="text-[15px] font-bold text-dime-ink">{item.name}</Text>
-                  {item.variant ? <Text className="text-[12px] text-dime-ink-3">{item.variant}</Text> : null}
-                  {item.instructions ? <Text className="text-[12px] italic text-dime-ink-4">"{item.instructions}"</Text> : null}
-                  <Text className="mt-0.5 text-[14px] font-semibold text-dime-ink-2">{rupees(line)}</Text>
+                  <Text numberOfLines={1} className="text-[15px] font-bold text-[#1C1C1E]">{item.name}</Text>
+                  {item.variant ? <Text className="text-[12px] text-[#93959F]">{item.variant}</Text> : null}
+                  {item.instructions ? <Text className="text-[12px] italic text-[#93959F]">"{item.instructions}"</Text> : null}
+                  <Text className="mt-0.5 text-[14px] font-semibold text-[#535665]">{rupees(line)}</Text>
                 </View>
                 <Stepper value={item.quantity} onChange={(v) => cart.updateQuantity(item.cartId, v)} size="sm" min={0} />
               </View>
@@ -149,7 +157,10 @@ export default function Cart() {
         })}
       </View>
 
-      <View className="mx-5 mt-5">
+      <View className="h-2 bg-[#F2F2F2]" />
+
+      {/* Table number */}
+      <View className="bg-white px-4 py-4">
         <Input
           label="Table number"
           keyboardType="number-pad"
@@ -163,47 +174,59 @@ export default function Cart() {
         />
       </View>
 
+      {/* Offers */}
       {offers && offers.length > 0 ? (
-        <View className="mx-5 mt-5 rounded-2xl bg-dime-primary-50 p-4" style={{ borderWidth: 1, borderColor: "rgba(255,107,44,0.15)", borderStyle: "dashed" }}>
-          <Text className="text-[14px] font-bold text-dime-ink" style={{ letterSpacing: -0.2 }}>Apply a code</Text>
-          <View className="mt-3 gap-2">
-            {offers.map((o) => {
-              const applicable = subtotal >= o.min_order_amount;
-              const discount = o.discount_type === "percentage"
-                ? Math.min(o.max_discount_cap ?? Infinity, Math.round(subtotal * Number(o.discount_value) / 100))
-                : Number(o.discount_value);
-              const selected = cart.promoCode === o.promo_code;
-              return (
-                <Pressable
-                  key={o.id}
-                  disabled={!applicable}
-                  onPress={() => selected ? cart.applyPromo(null, 0) : applyPromo(o.promo_code ?? "", discount)}
-                  className={`flex-row items-center justify-between rounded-xl bg-white p-4 ${!applicable && "opacity-40"}`}
-                  style={selected ? { borderWidth: 2, borderColor: "#FF6B2C" } : { borderWidth: 1, borderColor: "rgba(0,0,0,0.04)" }}
-                >
-                  <View className="flex-1">
-                    <Text className="text-[10px] font-bold uppercase text-dime-primary-600" style={{ letterSpacing: 1.5 }}>
-                      {o.promo_code}
+        <>
+          <View className="h-2 bg-[#F2F2F2]" />
+          <View className="bg-white px-4 py-4">
+            <Text className="mb-3 text-[14px] font-bold text-[#1C1C1E]" style={{ letterSpacing: -0.2 }}>Apply a code</Text>
+            <View className="gap-2">
+              {offers.map((o) => {
+                const applicable = subtotal >= o.min_order_amount;
+                const discount = o.discount_type === "percentage"
+                  ? Math.min(o.max_discount_cap ?? Infinity, Math.round(subtotal * Number(o.discount_value) / 100))
+                  : Number(o.discount_value);
+                const selected = cart.promoCode === o.promo_code;
+                return (
+                  <Pressable
+                    key={o.id}
+                    disabled={!applicable}
+                    onPress={() => selected ? cart.applyPromo(null, 0) : applyPromo(o.promo_code ?? "", discount)}
+                    className="flex-row items-center justify-between rounded-[12px] bg-white p-3.5"
+                    style={[
+                      { borderWidth: 1, borderColor: selected ? "#E23744" : "#F0F0F0" },
+                      !applicable && { opacity: 0.4 },
+                    ]}
+                  >
+                    <View className="flex-1">
+                      <View className="flex-row items-center gap-2">
+                        <Icon name="tag.fill" size={11} color="#E23744" />
+                        <Text className="text-[10px] font-bold uppercase text-[#E23744]" style={{ letterSpacing: 1 }}>
+                          {o.promo_code}
+                        </Text>
+                      </View>
+                      <Text className="mt-1 text-[14px] font-bold text-[#1C1C1E]">{o.title}</Text>
+                      <Text className="mt-0.5 text-[12px] text-[#93959F]">Save {rupees(discount)} · Min {rupees(o.min_order_amount)}</Text>
+                    </View>
+                    <Text className={`text-[13px] font-bold ${selected ? "text-[#E23744]" : "text-[#93959F]"}`}>
+                      {selected ? "Applied" : "Apply"}
                     </Text>
-                    <Text className="mt-0.5 text-[14px] font-bold text-dime-ink">{o.title}</Text>
-                    <Text className="mt-0.5 text-[12px] text-dime-ink-3">Save {rupees(discount)} · Min {rupees(o.min_order_amount)}</Text>
-                  </View>
-                  <Text className={`text-[13px] font-bold ${selected ? "text-dime-primary-500" : "text-dime-ink-3"}`}>
-                    {selected ? "Applied" : "Apply"}
-                  </Text>
-                </Pressable>
-              );
-            })}
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
-        </View>
+        </>
       ) : null}
 
+      {/* Points */}
       {profile && profile.loyalty_points >= 100 ? (
-        <View className="mx-5 mt-5 rounded-2xl bg-white p-4" style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 1 }}>
-          <View className="flex-row items-center justify-between">
+        <>
+          <View className="h-2 bg-[#F2F2F2]" />
+          <View className="flex-row items-center justify-between bg-white px-4 py-4">
             <View>
-              <Text className="text-[14px] font-bold text-dime-ink">Redeem points</Text>
-              <Text className="mt-0.5 text-[12px] text-dime-ink-3">{profile.loyalty_points} available · 100 points = ₹50</Text>
+              <Text className="text-[14px] font-bold text-[#1C1C1E]">Redeem points</Text>
+              <Text className="mt-0.5 text-[12px] text-[#93959F]">{profile.loyalty_points} available · 100 points = ₹50</Text>
             </View>
             <Chip
               label={cart.pointsToRedeem > 0 ? `${cart.pointsToRedeem} redeemed` : "Use 100"}
@@ -211,13 +234,14 @@ export default function Cart() {
               onPress={() => cart.setPoints(cart.pointsToRedeem > 0 ? 0 : Math.min(100, profile.loyalty_points))}
             />
           </View>
-        </View>
+        </>
       ) : null}
 
-      <View className="mx-5 mt-5">
-        <Text className="mb-3 text-[11px] font-bold uppercase text-dime-ink-4" style={{ letterSpacing: 1.5 }}>
-          Add a tip
-        </Text>
+      <View className="h-2 bg-[#F2F2F2]" />
+
+      {/* Tip */}
+      <View className="bg-white px-4 py-4">
+        <Text className="mb-3 text-[11px] font-bold uppercase text-[#93959F]" style={{ letterSpacing: 1 }}>Add a tip</Text>
         <View className="flex-row gap-2">
           {tips.map((t) => (
             <Chip key={t} label={t === 0 ? "No tip" : rupees(t)} selected={cart.tipAmount === t} onPress={() => cart.setTip(t)} />
@@ -225,7 +249,10 @@ export default function Cart() {
         </View>
       </View>
 
-      <View className="mx-5 mt-5">
+      <View className="h-2 bg-[#F2F2F2]" />
+
+      {/* Instructions */}
+      <View className="bg-white px-4 py-4">
         <Input
           label="Special instructions"
           placeholder="Allergies, preferences..."
@@ -236,18 +263,22 @@ export default function Cart() {
         />
       </View>
 
-      <View className="mx-5 mt-5 rounded-2xl bg-white p-5" style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 12, elevation: 2 }}>
+      <View className="h-2 bg-[#F2F2F2]" />
+
+      {/* Bill summary */}
+      <View className="bg-white px-4 py-4">
+        <Text className="mb-3 text-[11px] font-bold uppercase text-[#93959F]" style={{ letterSpacing: 1 }}>Bill summary</Text>
         <Row label="Subtotal" value={rupees(subtotal)} />
         {cart.discountAmount > 0 && <Row label="Discount" value={`- ${rupees(cart.discountAmount)}`} positive />}
         {cart.pointsToRedeem > 0 && <Row label="Points" value={`- ${rupees(pointsValue)}`} positive />}
         <Row label="GST (5%)" value={rupees(tax)} />
         {cart.tipAmount > 0 && <Row label="Tip" value={rupees(cart.tipAmount)} />}
-        <View className="mt-3 border-t border-neutral-100 pt-3">
+        <View className="mt-2 pt-2" style={{ borderTopWidth: 1, borderTopColor: "#F0F0F0" }}>
           <Row label="Total" value={rupees(grandTotal)} bold />
         </View>
       </View>
 
-      <View className="mx-5 mt-6 mb-8">
+      <View className="px-4 pb-8 pt-4">
         <Button label={`Place order · ${rupees(grandTotal)}`} size="lg" loading={placing} onPress={placeOrder} fullWidth />
       </View>
     </Screen>
@@ -257,8 +288,8 @@ export default function Cart() {
 function Row({ label, value, bold, positive }: { label: string; value: string; bold?: boolean; positive?: boolean }) {
   return (
     <View className="flex-row items-center justify-between py-1.5">
-      <Text className={bold ? "text-[16px] font-bold text-dime-ink" : "text-[14px] text-dime-ink-2"}>{label}</Text>
-      <Text className={`${bold ? "text-[18px] font-bold" : "text-[14px] font-medium"} ${positive ? "text-emerald-600" : "text-dime-ink"}`}>{value}</Text>
+      <Text className={bold ? "text-[16px] font-bold text-[#1C1C1E]" : "text-[14px] text-[#535665]"}>{label}</Text>
+      <Text className={`${bold ? "text-[17px] font-bold" : "text-[14px] font-medium"} ${positive ? "text-[#267E3E]" : "text-[#1C1C1E]"}`}>{value}</Text>
     </View>
   );
 }

@@ -28,7 +28,11 @@
         "backgroundColor": "#FC8019"
       },
       "package": "com.dime.app",
-      "permissions": ["CAMERA", "READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE"]
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -42,7 +46,8 @@
         {
           "cameraPermission": "Allow DIME to access your camera to scan QR codes."
         }
-      ]
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true

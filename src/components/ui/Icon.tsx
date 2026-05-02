@@ -89,6 +89,19 @@ const fallback: Record<string, keyof typeof MaterialIcons.glyphMap> = {
   "chevron.up": "expand-less",
   "printer.fill": "print",
   "photo.on.rectangle": "photo-library",
+  "arrow.clockwise": "refresh",
+  "arrow.counterclockwise": "replay",
+  "arrow.triangle.2.circlepath": "sync",
+  "person.3.fill": "groups",
+  "photo.badge.plus.fill": "add-a-photo",
+  "bolt.fill": "bolt",
+  "briefcase.fill": "work",
+  "moon.fill": "dark-mode",
+  "party.popper.fill": "celebration",
+  "questionmark.circle": "help",
+  "mappin": "place",
+  "mappin.and.ellipse": "place",
+  "text.bubble.fill": "chat-bubble",
 };
 
 type Props = {

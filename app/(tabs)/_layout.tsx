@@ -4,14 +4,13 @@ import { Platform, Pressable, Text, useWindowDimensions, View } from "react-nati
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/store/auth";
 import { Icon, haptic } from "@/components/ui";
-import { cn } from "@/lib/cn";
 
 type TabRoute = { name: "home" | "discover" | "bookings" | "profile"; label: string; icon: string };
 const tabs: TabRoute[] = [
   { name: "home", label: "Home", icon: "house.fill" },
-  { name: "discover", label: "Discover", icon: "magnifyingglass" },
+  { name: "discover", label: "Search", icon: "magnifyingglass" },
   { name: "bookings", label: "Bookings", icon: "calendar" },
-  { name: "profile", label: "Profile", icon: "person.fill" },
+  { name: "profile", label: "Account", icon: "person.fill" },
 ];
 
 export default function CustomerTabs() {
@@ -51,13 +50,9 @@ export default function CustomerTabs() {
         <View
           className="flex-row items-center justify-around bg-white px-2 pt-2"
           style={{
-            paddingBottom: Math.max(insets.bottom, 12),
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: -4 },
-            shadowOpacity: 0.04,
-            shadowRadius: 16,
-            elevation: 8,
-            borderTopWidth: 0,
+            paddingBottom: Math.max(insets.bottom, 10),
+            borderTopWidth: 1,
+            borderTopColor: "#F0F0F0",
           }}
         >
           {tabs.map((t, i) => {
@@ -65,24 +60,13 @@ export default function CustomerTabs() {
             return (
               <Pressable
                 key={t.name}
-                onPress={() => {
-                  haptic.light();
-                  navigation.navigate(t.name as never);
-                }}
-                className="flex-1 items-center"
+                onPress={() => { haptic.light(); navigation.navigate(t.name as never); }}
+                className="flex-1 items-center py-1"
               >
-                <View className={cn(
-                  "h-8 w-14 items-center justify-center rounded-full",
-                  focused && "bg-dime-primary-50"
-                )}>
-                  <Icon name={t.icon} size={20} color={focused ? "#FF6B2C" : "#BFBFBF"} />
-                </View>
+                <Icon name={t.icon} size={22} color={focused ? "#E23744" : "#93959F"} />
                 <Text
-                  className={cn(
-                    "mt-0.5 text-[10px]",
-                    focused ? "font-bold text-dime-primary-600" : "font-medium text-dime-ink-4"
-                  )}
-                  style={{ letterSpacing: 0.2 }}
+                  className="mt-1 text-[10px] font-semibold"
+                  style={{ color: focused ? "#E23744" : "#93959F", letterSpacing: 0.1 }}
                 >
                   {t.label}
                 </Text>

@@ -17,23 +17,24 @@ export function RestaurantCard({
     router.push({ pathname: "/restaurant/[id]", params: { id: restaurant.id } });
   };
 
-  const priceSymbols = "₹".repeat(restaurant.price_range);
+  const rating = Number(restaurant.rating).toFixed(1);
+  const ratingNum = Number(restaurant.rating);
+  const ratingBg = ratingNum >= 4 ? "#267E3E" : ratingNum >= 3 ? "#DB7C38" : "#E23744";
 
   if (variant === "compact") {
     return (
-      <Pressable onPress={onPress} className="mr-3 w-44">
-        <View className="overflow-hidden rounded-2xl">
-          <Image source={{ uri: restaurant.cover_image_url ?? "" }} className="h-32 w-44" resizeMode="cover" />
-          <LinearGradient
-            colors={["transparent", "rgba(0,0,0,0.5)"]}
-            className="absolute inset-x-0 bottom-0 h-16 justify-end p-3"
-          >
-            <Text numberOfLines={1} className="text-[14px] font-bold text-white">{restaurant.name}</Text>
-          </LinearGradient>
+      <Pressable onPress={onPress} className="mr-3 w-[150px]">
+        <View className="overflow-hidden rounded-[14px]" style={{ borderWidth: 1, borderColor: "#F0F0F0" }}>
+          <Image source={{ uri: restaurant.cover_image_url ?? "" }} className="h-[110px] w-[150px]" resizeMode="cover" />
+          {ratingNum > 0 ? (
+            <View className="absolute right-2 top-2 flex-row items-center gap-0.5 rounded-[4px] px-1.5 py-0.5" style={{ backgroundColor: ratingBg }}>
+              <Text className="text-[10px] font-bold text-white">{rating}</Text>
+              <Icon name="star.fill" size={7} color="#fff" />
+            </View>
+          ) : null}
         </View>
-        <Text numberOfLines={1} className="mt-2 text-[12px] text-dime-ink-3">
-          {restaurant.cuisines.slice(0, 2).join(" · ")}
-        </Text>
+        <Text numberOfLines={1} className="mt-1.5 text-[13px] font-bold text-[#1C1C1E]">{restaurant.name}</Text>
+        <Text numberOfLines={1} className="mt-0.5 text-[11px] text-[#93959F]">{restaurant.cuisines.slice(0, 2).join(", ")}</Text>
       </Pressable>
     );
   }
@@ -41,47 +42,62 @@ export function RestaurantCard({
   return (
     <Pressable
       onPress={onPress}
-      className={variant === "horizontal" ? "mr-4 w-[300px]" : "flex-1"}
-      style={({ pressed }) => (pressed ? { transform: [{ scale: 0.98 }] } : undefined)}
+      className={variant === "horizontal" ? "mr-3.5 w-[280px]" : "flex-1"}
+      style={({ pressed }) => (pressed ? { opacity: 0.97 } : undefined)}
     >
-      <View
-        className="overflow-hidden rounded-2xl bg-white"
-        style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 3 }}
-      >
+      <View className="overflow-hidden rounded-[18px] bg-white" style={{ borderWidth: 1, borderColor: "#F0F0F0" }}>
         <View className="relative">
-          <Image source={{ uri: restaurant.cover_image_url ?? "" }} className="h-44 w-full" resizeMode="cover" />
-          <LinearGradient
-            colors={["transparent", "rgba(0,0,0,0.55)"]}
-            className="absolute inset-x-0 bottom-0 h-24 justify-end px-4 pb-3"
-          >
-            <Text numberOfLines={1} className="text-[18px] font-bold text-white" style={{ letterSpacing: -0.3 }}>
-              {restaurant.name}
-            </Text>
-            <Text numberOfLines={1} className="mt-0.5 text-[12px] text-white/80">
-              {restaurant.cuisines.slice(0, 3).join(" · ")}
-            </Text>
-          </LinearGradient>
-          {restaurant.featured ? (
-            <View className="absolute left-3 top-3 flex-row items-center gap-1 rounded-full bg-dime-gold px-2.5 py-1">
-              <Icon name="star.fill" size={10} color="#fff" />
-              <Text className="text-[10px] font-bold uppercase text-white" style={{ letterSpacing: 0.8 }}>
-                Featured
-              </Text>
+          <Image source={{ uri: restaurant.cover_image_url ?? "" }} className="h-[170px] w-full" resizeMode="cover" />
+
+          {restaurant.price_range <= 2 ? (
+            <View className="absolute inset-x-0 bottom-0">
+              <LinearGradient colors={["transparent", "rgba(0,0,0,0.65)"]} className="px-3 pb-2.5 pt-6">
+                <Text className="text-[14px] font-extrabold text-white" style={{ letterSpacing: -0.3 }}>
+                  FLAT ₹100 OFF
+                </Text>
+                <Text className="text-[10px] font-medium text-white/70">ABOVE ₹249</Text>
+              </LinearGradient>
+            </View>
+          ) : restaurant.featured ? (
+            <View className="absolute inset-x-0 bottom-0">
+              <LinearGradient colors={["transparent", "rgba(0,0,0,0.55)"]} className="px-3 pb-2.5 pt-6">
+                <View className="flex-row items-center gap-1">
+                  <Icon name="star.fill" size={9} color="#FFD700" />
+                  <Text className="text-[12px] font-extrabold text-white" style={{ letterSpacing: 0.5 }}>
+                    PROMOTED
+                  </Text>
+                </View>
+              </LinearGradient>
             </View>
           ) : null}
         </View>
-        <View className="flex-row items-center gap-3 px-4 py-3">
-          <View className="flex-row items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1">
-            <Icon name="star.fill" size={12} color="#16A34A" />
-            <Text className="text-[13px] font-bold text-emerald-700">
-              {Number(restaurant.rating).toFixed(1)}
-            </Text>
+
+        <View className="px-3 py-2.5">
+          <View className="flex-row items-start justify-between">
+            <View className="flex-1 pr-2">
+              <Text numberOfLines={1} className="text-[15px] font-bold text-[#1C1C1E]" style={{ letterSpacing: -0.2 }}>
+                {restaurant.name}
+              </Text>
+              <Text numberOfLines={1} className="mt-0.5 text-[12px] text-[#93959F]">
+                {restaurant.cuisines.slice(0, 3).join(", ")}
+              </Text>
+            </View>
+            {ratingNum > 0 ? (
+              <View className="flex-row items-center gap-0.5 rounded-[5px] px-1.5 py-1" style={{ backgroundColor: ratingBg }}>
+                <Text className="text-[12px] font-bold text-white">{rating}</Text>
+                <Icon name="star.fill" size={8} color="#fff" />
+              </View>
+            ) : null}
           </View>
-          <Text className="text-[13px] font-medium text-dime-ink-3">{priceSymbols}</Text>
-          <View className="h-1 w-1 rounded-full bg-dime-ink-4" />
-          <Text numberOfLines={1} className="flex-1 text-[13px] text-dime-ink-3">
-            {restaurant.city}
-          </Text>
+
+          <View className="mt-1.5 flex-row items-center">
+            <Icon name="mappin" size={10} color="#93959F" />
+            <Text className="ml-1 text-[11px] text-[#93959F]">{restaurant.city}</Text>
+            <Text className="mx-1.5 text-[11px] text-[#D4D4D8]">•</Text>
+            <Text className="text-[11px] text-[#93959F]">{"₹".repeat(restaurant.price_range)} for one</Text>
+            <Text className="mx-1.5 text-[11px] text-[#D4D4D8]">•</Text>
+            <Text className="text-[11px] text-[#93959F]">30 min</Text>
+          </View>
         </View>
       </View>
     </Pressable>

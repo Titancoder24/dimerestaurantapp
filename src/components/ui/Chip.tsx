@@ -23,18 +23,18 @@ export function Chip({
         onPress?.();
       }}
       className={cn(
-        "flex-row items-center gap-2 rounded-full px-4 py-2.5",
+        "flex-row items-center gap-1.5 rounded-[8px] px-3 py-2",
         selected
-          ? "bg-dime-ink"
-          : "bg-dime-bg-2",
+          ? "bg-[#1C1C1E]"
+          : "border border-[#E8E8E8] bg-white",
         disabled && "opacity-40"
       )}
     >
       {leading}
       <Text
         className={cn(
-          "text-[13px] font-semibold",
-          selected ? "text-white" : "text-dime-ink-2"
+          "text-[12px] font-semibold",
+          selected ? "text-white" : "text-[#535665]"
         )}
       >
         {label}

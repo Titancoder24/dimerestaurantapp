@@ -207,3 +207,157 @@ export function useNotifications() {
     },
   });
 }
+
+// Augmented restaurant row type that includes columns added in
+// migration 015_dineout_metadata. Each is optional so the UI works
+// before the migration is applied (values fall back to sensible
+// defaults at the call site).
+export type DineoutRestaurant = Tables<"restaurants"> & {
+  cost_for_two?: number | null;
+  distance_km?: number | null;
+  pre_booking_discount_pct?: number | null;
+  bank_offer_label?: string | null;
+  cashback_pct?: number | null;
+  gallery_urls?: string[] | null;
+};
+
+export type DineoutFilters = {
+  city?: string;
+  withinKm?: number;
+  minRating?: number;
+  pureVeg?: boolean;
+  servesAlcohol?: boolean;
+  cuisine?: string;
+  search?: string;
+  bookable?: boolean;
+};
+
+export function useDineoutRestaurants(filters?: DineoutFilters) {
+  return useQuery({
+    queryKey: ["dineout-restaurants", filters ?? {}],
+    queryFn: async () => {
+      let q = supabase
+        .from("restaurants")
+        .select("*")
+        .eq("status", "verified")
+        .order("featured", { ascending: false })
+        .order("rating", { ascending: false });
+
+      if (filters?.city) q = q.eq("city", filters.city);
+      if (filters?.minRating) q = q.gte("rating", filters.minRating);
+      if (filters?.cuisine && filters.cuisine !== "All") q = q.contains("cuisines", [filters.cuisine]);
+      if (filters?.pureVeg) q = q.contains("amenities", ["Pure Veg"]);
+      if (filters?.servesAlcohol) q = q.contains("amenities", ["Serves Alcohol"]);
+      if (filters?.search) q = q.ilike("name", `%${filters.search}%`);
+
+      const { data, error } = await q;
+      if (error) throw error;
+
+      let list = (data ?? []) as DineoutRestaurant[];
+      // Within-km filter is client-side because it reads a column the
+      // server-side filter chain would also need to handle nulls for.
+      if (filters?.withinKm != null) {
+        const km = filters.withinKm;
+        list = list.filter((r) => {
+          const d = r.distance_km;
+          return d == null || Number(d) <= km;
+        });
+      }
+      return list;
+    },
+  });
+}
+
+export type ReviewBreakdown = {
+  food: number;
+  beverages: number;
+  service: number;
+  overall: number;
+  total: number;
+};
+
+export function useReviewBreakdown(restaurantId: string | undefined) {
+  return useQuery({
+    queryKey: ["review-breakdown", restaurantId],
+    enabled: !!restaurantId,
+    queryFn: async (): Promise<ReviewBreakdown> => {
+      const { data, error } = await supabase
+        .from("reviews")
+        .select("food_rating, beverages_rating, service_rating, overall_rating")
+        .eq("restaurant_id", restaurantId!)
+        .eq("is_published", true);
+      if (error) throw error;
+      const rows = (data ?? []) as {
+        food_rating: number | null;
+        beverages_rating: number | null;
+        service_rating: number | null;
+        overall_rating: number | null;
+      }[];
+      const total = rows.length;
+      if (total === 0) return { food: 0, beverages: 0, service: 0, overall: 0, total: 0 };
+
+      const avg = (key: keyof (typeof rows)[number]) => {
+        const vals = rows.map((r) => r[key]).filter((v): v is number => v != null);
+        if (vals.length === 0) return 0;
+        return Math.round((vals.reduce((s, v) => s + v, 0) / vals.length) * 10) / 10;
+      };
+
+      return {
+        food: avg("food_rating"),
+        beverages: avg("beverages_rating"),
+        service: avg("service_rating"),
+        overall: avg("overall_rating"),
+        total,
+      };
+    },
+  });
+}
+
+export function useSimilarRestaurants(restaurantId: string | undefined) {
+  return useQuery({
+    queryKey: ["similar-restaurants", restaurantId],
+    enabled: !!restaurantId,
+    queryFn: async () => {
+      const { data: source, error: srcErr } = await supabase
+        .from("restaurants")
+        .select("city, cuisines")
+        .eq("id", restaurantId!)
+        .maybeSingle();
+      if (srcErr) throw srcErr;
+      if (!source) return [];
+      const { city, cuisines } = source as { city: string; cuisines: string[] };
+
+      let q = supabase
+        .from("restaurants")
+        .select("*")
+        .eq("status", "verified")
+        .eq("city", city)
+        .neq("id", restaurantId!)
+        .limit(6);
+      if (cuisines && cuisines.length > 0) q = q.overlaps("cuisines", cuisines);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []) as Tables<"restaurants">[];
+    },
+  });
+}
+
+export function usePaginatedReviews(restaurantId: string | undefined, page: number, pageSize: number = 20) {
+  return useQuery({
+    queryKey: ["reviews-paged", restaurantId, page, pageSize],
+    enabled: !!restaurantId,
+    queryFn: async () => {
+      const from = page * pageSize;
+      const to = from + pageSize - 1;
+      const { data, error } = await supabase
+        .from("reviews")
+        .select("*, users(name, avatar_url)", { count: "exact" })
+        .eq("restaurant_id", restaurantId!)
+        .eq("is_published", true)
+        .order("created_at", { ascending: false })
+        .range(from, to);
+      if (error) throw error;
+      return data as (Tables<"reviews"> & { users: { name: string | null; avatar_url: string | null } })[];
+    },
+  });
+}
