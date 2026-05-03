@@ -1,20 +1,21 @@
 import { useMemo } from "react";
-import { ScrollView, Text, View, useWindowDimensions } from "react-native";
+import { Text, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
-import { Card } from "@/components/ui";
-import { LineChart } from "@/components/charts/LineChart";
 import { supabase, type Tables } from "@/lib/supabase";
 import { rupees } from "@/lib/format";
+import {
+  PageScroll, PageHeader, CardShell, CardHeader, MonoText, EmptyState,
+  StatRow, StatTile, Pill,
+  ADMIN_INK, ADMIN_INK2, ADMIN_INK3, ADMIN_HAIRLINE, ADMIN_HAIRLINE2,
+  ADMIN_PANEL2, ADMIN_ACCENT, ADMIN_ACCENT2, ADMIN_GREEN, ADMIN_RED,
+} from "@/components/admin/shell";
 
 const PLATFORM_TAKE_RATE = 0.05;
 
 type OrderRow = Tables<"orders"> & { restaurants: { name: string | null; city: string | null } | null };
 
 export default function Financials() {
-  const { width } = useWindowDimensions();
-  const chartW = Math.min(width - 64, 720);
-
   const { data: orders } = useQuery({
     queryKey: ["fin-orders"],
     queryFn: async () => {
@@ -43,9 +44,10 @@ export default function Financials() {
     const days = Array.from({ length: 30 }).map((_, i) => dayjs().subtract(29 - i, "day"));
     return days.map((d) => {
       const dayOrders = stats.list.filter((o) => dayjs(o.created_at).isSame(d, "day") && o.status === "paid");
-      return dayOrders.reduce((s, o) => s + Number(o.total_amount), 0);
+      return { day: d.format("DD"), v: dayOrders.reduce((s, o) => s + Number(o.total_amount), 0) };
     });
   }, [stats.list]);
+  const seriesPeak = Math.max(1, ...series.map((s) => s.v));
 
   const monthly = useMemo(() => {
     const months = Array.from({ length: 6 }).map((_, i) => dayjs().subtract(5 - i, "month").startOf("month"));
@@ -55,6 +57,7 @@ export default function Financials() {
       return { month: m.format("MMM"), gmv, count: ordersIn.length };
     });
   }, [stats.list]);
+  const monthlyPeak = Math.max(1, ...monthly.map((m) => m.gmv));
 
   const byRestaurant = useMemo(() => {
     const map = new Map<string, { name: string; city: string; gmv: number; count: number }>();
@@ -77,108 +80,132 @@ export default function Financials() {
     return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
   }, [stats.paid]);
 
-  const kpis = [
-    { label: "GMV", value: rupees(stats.gmv), sub: "Gross merch volume", bg: "#FFF7ED", color: "#EA580C" },
-    { label: "Platform revenue", value: rupees(stats.revenue), sub: `${(PLATFORM_TAKE_RATE * 100).toFixed(0)}% take`, bg: "#F0FDF4", color: "#16A34A" },
-    { label: "Refunds", value: rupees(stats.refunds), sub: `${stats.list.length - stats.paid.length} cancelled`, bg: "#FEF2F2", color: "#DC2626" },
-    { label: "Avg order", value: rupees(stats.aov), sub: `${stats.paid.length} paid`, bg: "#EFF6FF", color: "#2563EB" },
-  ];
-
   return (
-    <ScrollView className="flex-1 bg-neutral-50" contentContainerStyle={{ padding: 24, gap: 20, paddingBottom: 40 }}>
-      {/* Header */}
-      <View>
-        <Text className="text-[11px] font-bold uppercase text-dime-ink-4" style={{ letterSpacing: 1.2 }}>Growth</Text>
-        <Text className="mt-1 text-[26px] font-bold text-dime-ink" style={{ letterSpacing: -0.8 }}>Revenue & Financials</Text>
-        <Text className="mt-0.5 text-[13px] text-dime-ink-4">90 days · take rate {(PLATFORM_TAKE_RATE * 100).toFixed(0)}%</Text>
-      </View>
+    <PageScroll>
+      <PageHeader
+        eyebrow="DIME ADMIN · GROWTH · FINANCE"
+        title="Revenue & financials"
+        subtitle={`Trailing 90 days · ${(PLATFORM_TAKE_RATE * 100).toFixed(0)}% platform take rate`}
+        rightSlot={<Pill tone="lilac" icon="chart.line.uptrend.xyaxis">90 days</Pill>}
+      />
 
-      {/* KPI row */}
-      <View className="flex-row flex-wrap gap-4">
-        {kpis.map((k) => (
-          <View
-            key={k.label}
-            className="min-w-[160px] flex-1 rounded-2xl bg-white p-5"
-            style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 12, elevation: 2, borderWidth: 1, borderColor: "rgba(0,0,0,0.04)" }}
-          >
-            <View className="mb-2 h-8 w-8 items-center justify-center rounded-xl" style={{ backgroundColor: k.bg }}>
-              <View className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: k.color }} />
-            </View>
-            <Text className="text-[12px] font-semibold text-dime-ink-3">{k.label}</Text>
-            <Text className="mt-1 text-[22px] font-bold text-dime-ink" style={{ letterSpacing: -0.5 }}>{k.value}</Text>
-            <Text className="mt-0.5 text-[11px] text-dime-ink-4">{k.sub}</Text>
-          </View>
-        ))}
-      </View>
+      <StatRow>
+        <StatTile icon="indianrupeesign.circle.fill" iconBg="#2B1810" iconColor={ADMIN_ACCENT} label="GMV" value={rupees(stats.gmv)} hint="Gross merchandise value" />
+        <StatTile icon="checkmark.seal.fill" iconBg="#0E2F1F" iconColor={ADMIN_GREEN} label="Platform revenue" value={rupees(stats.revenue)} hint={`${(PLATFORM_TAKE_RATE * 100).toFixed(0)}% take across paid`} />
+        <StatTile icon="arrow.uturn.backward.circle.fill" iconBg="#3A1212" iconColor={ADMIN_RED} label="Refunds & cancels" value={rupees(stats.refunds)} hint={`${stats.list.length - stats.paid.length} cancelled`} />
+        <StatTile icon="bag.fill" iconBg="#1B1730" iconColor={ADMIN_ACCENT2} label="Avg ticket" value={rupees(stats.aov)} hint={`${stats.paid.length} paid orders`} />
+      </StatRow>
 
-      {/* GMV chart */}
-      <Card>
-        <Card.Header title="GMV Trend" subtitle="Last 30 days" />
-        <Card.Body>
-          <LineChart data={series} width={chartW} />
-        </Card.Body>
-      </Card>
-
-      {/* Monthly bars */}
-      <Card>
-        <Card.Header title="Monthly Trend" />
-        <Card.Body>
-          <View className="flex-row items-end gap-2" style={{ height: 120 }}>
-            {monthly.map((m, i) => {
-              const maxGmv = Math.max(...monthly.map((x) => x.gmv), 1);
-              const heightPct = (m.gmv / maxGmv) * 100;
+      <CardShell>
+        <CardHeader title="GMV — last 30 days" subtitle="Daily totals across paid orders" />
+        <View style={{ paddingHorizontal: 18, paddingTop: 14, paddingBottom: 14 }}>
+          <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 3, height: 140 }}>
+            {series.map((s, i) => {
+              const h = Math.max(2, (s.v / seriesPeak) * 130);
+              const isPeak = s.v === seriesPeak && seriesPeak > 0;
               return (
-                <View key={i} className="flex-1 items-center">
-                  <View style={{ height: `${heightPct}%`, minHeight: 4 }} className="w-full rounded-t-md bg-dime-primary-500" />
-                  <Text className="mt-1.5 text-[10px] font-medium text-dime-ink-3">{m.month}</Text>
-                  <Text className="text-[10px] font-bold text-dime-ink">{rupees(m.gmv)}</Text>
+                <View
+                  key={i}
+                  style={{
+                    flex: 1, height: h, borderRadius: 3,
+                    backgroundColor: isPeak ? ADMIN_ACCENT : ADMIN_HAIRLINE2,
+                  }}
+                />
+              );
+            })}
+          </View>
+        </View>
+        {stats.list.length === 0 ? (
+          <EmptyState icon="chart.line.uptrend.xyaxis" title="No paid orders yet" body="Once paid orders flow through, daily GMV will graph here." compact />
+        ) : null}
+      </CardShell>
+
+      <CardShell>
+        <CardHeader title="Monthly trend" subtitle="Last 6 months · paid orders only" />
+        <View style={{ paddingHorizontal: 18, paddingTop: 16, paddingBottom: 16 }}>
+          <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 16, height: 160 }}>
+            {monthly.map((m, i) => {
+              const h = Math.max(4, (m.gmv / monthlyPeak) * 130);
+              return (
+                <View key={i} style={{ flex: 1, alignItems: "center", gap: 8 }}>
+                  <View
+                    style={{
+                      width: "100%", height: h, borderRadius: 6,
+                      backgroundColor: i === monthly.length - 1 ? ADMIN_ACCENT : ADMIN_PANEL2,
+                      borderWidth: 1, borderColor: i === monthly.length - 1 ? ADMIN_ACCENT : ADMIN_HAIRLINE2,
+                    }}
+                  />
+                  <MonoText size={10.5} color={ADMIN_INK3}>{m.month.toUpperCase()}</MonoText>
+                  <MonoText size={11} weight="700" color={ADMIN_INK}>{rupees(m.gmv)}</MonoText>
                 </View>
               );
             })}
           </View>
-        </Card.Body>
-      </Card>
+        </View>
+      </CardShell>
 
-      {/* Top earners */}
-      <Card>
-        <Card.Header title="Top Earners" />
-        <Card.Body className="gap-0">
-          {byRestaurant.slice(0, 10).map((r, idx) => (
-            <View key={r.name + idx} className={`flex-row items-center gap-3.5 py-3 ${idx > 0 ? "border-t border-neutral-100" : ""}`}>
-              <View className="h-7 w-7 items-center justify-center rounded-lg bg-dime-primary-50">
-                <Text className="text-[11px] font-bold text-dime-primary-600">{idx + 1}</Text>
+      <View style={{ flexDirection: "row", gap: 16, flexWrap: "wrap" }}>
+        <View style={{ flex: 1, minWidth: 320 }}>
+          <CardShell>
+            <CardHeader title="Top earners" subtitle="By GMV" right={<Pill tone="green">{byRestaurant.length}</Pill>} />
+            {byRestaurant.length === 0 ? (
+              <EmptyState icon="building.2.fill" title="No earners yet" body="When restaurants take paid orders, the leaderboard fills in." compact />
+            ) : null}
+            {byRestaurant.slice(0, 10).map((r, i) => (
+              <View
+                key={r.name + i}
+                style={{
+                  flexDirection: "row", alignItems: "center", gap: 12,
+                  paddingHorizontal: 18, paddingVertical: 12,
+                  borderTopWidth: i ? 1 : 0, borderTopColor: ADMIN_HAIRLINE,
+                }}
+              >
+                <View
+                  style={{
+                    width: 30, height: 30, borderRadius: 7,
+                    backgroundColor: ADMIN_PANEL2, borderWidth: 1, borderColor: ADMIN_HAIRLINE2,
+                    alignItems: "center", justifyContent: "center",
+                  }}
+                >
+                  <MonoText size={11} weight="700" color={i < 3 ? ADMIN_ACCENT : ADMIN_INK}>
+                    {String(i + 1).padStart(2, "0")}
+                  </MonoText>
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: "700", color: ADMIN_INK }}>{r.name}</Text>
+                  <MonoText size={10.5} color={ADMIN_INK3}>{(r.city || "—").toUpperCase()} · {r.count} ORDERS</MonoText>
+                </View>
+                <MonoText size={13} weight="700" color={ADMIN_INK}>{rupees(r.gmv)}</MonoText>
               </View>
-              <View className="flex-1">
-                <Text className="text-[14px] font-semibold text-dime-ink">{r.name}</Text>
-                <Text className="text-[11px] text-dime-ink-4">{r.city} · {r.count} orders</Text>
-              </View>
-              <Text className="text-[14px] font-bold text-dime-ink">{rupees(r.gmv)}</Text>
+            ))}
+          </CardShell>
+        </View>
+
+        <View style={{ flex: 1, minWidth: 320 }}>
+          <CardShell>
+            <CardHeader title="By city" subtitle="Share of GMV" />
+            {byCity.length === 0 ? (
+              <EmptyState icon="mappin" title="No city signal yet" body="Once orders span cities, the share breaks down here." compact />
+            ) : null}
+            <View style={{ padding: 18, gap: 14 }}>
+              {byCity.map(([city, gmv]) => {
+                const pct = stats.gmv > 0 ? (gmv / stats.gmv) * 100 : 0;
+                return (
+                  <View key={city}>
+                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                      <Text style={{ fontSize: 13, fontWeight: "700", color: ADMIN_INK }}>{city}</Text>
+                      <MonoText size={11.5} color={ADMIN_INK2}>{rupees(gmv)} · {pct.toFixed(0)}%</MonoText>
+                    </View>
+                    <View style={{ marginTop: 8, height: 6, borderRadius: 3, backgroundColor: ADMIN_HAIRLINE, overflow: "hidden" }}>
+                      <View style={{ width: `${Math.max(0, Math.min(100, pct))}%`, height: "100%", backgroundColor: ADMIN_ACCENT2 }} />
+                    </View>
+                  </View>
+                );
+              })}
             </View>
-          ))}
-          {byRestaurant.length === 0 ? <Text className="py-6 text-center text-[13px] text-dime-ink-4">No orders yet.</Text> : null}
-        </Card.Body>
-      </Card>
-
-      {/* By city */}
-      <Card>
-        <Card.Header title="By City" />
-        <Card.Body className="gap-3">
-          {byCity.map(([city, gmv]) => {
-            const pct = stats.gmv > 0 ? (gmv / stats.gmv) * 100 : 0;
-            return (
-              <View key={city}>
-                <View className="flex-row items-center justify-between">
-                  <Text className="text-[13px] font-semibold text-dime-ink">{city}</Text>
-                  <Text className="text-[12px] text-dime-ink-3">{rupees(gmv)} · {pct.toFixed(0)}%</Text>
-                </View>
-                <View className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-neutral-100">
-                  <View style={{ width: `${pct}%` }} className="h-full rounded-full bg-dime-primary-500" />
-                </View>
-              </View>
-            );
-          })}
-        </Card.Body>
-      </Card>
-    </ScrollView>
+          </CardShell>
+        </View>
+      </View>
+    </PageScroll>
   );
 }

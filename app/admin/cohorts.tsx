@@ -2,9 +2,12 @@ import { useMemo } from "react";
 import { Text, View, ScrollView } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
-import { Header, Icon, Screen } from "@/components/ui";
 import { supabase, type Tables } from "@/lib/supabase";
 import { rupees } from "@/lib/format";
+import {
+  PageScroll, PageHeader, CardShell, CardHeader, MonoText, EmptyState, Pill,
+  ADMIN_INK, ADMIN_INK2, ADMIN_INK3, ADMIN_HAIRLINE, ADMIN_MONO,
+} from "@/components/admin/shell";
 
 const WEEKS = 8;
 
@@ -37,7 +40,6 @@ export default function Cohorts() {
 
   const cohortRows = useMemo(() => {
     if (!users) return [];
-    // Group users by signup week
     const byWeek = new Map<string, string[]>();
     for (const u of users) {
       const wk = dayjs(u.created_at).startOf("week").format("YYYY-MM-DD");
@@ -53,7 +55,6 @@ export default function Cohorts() {
       ordersByUser.set(o.user_id, list);
     }
 
-    // Build retention matrix: for each cohort, % active in week 0..N
     const cohorts = Array.from(byWeek.entries()).sort(([a], [b]) => (a < b ? 1 : -1));
     return cohorts.map(([weekStart, ids]) => {
       const cohortStart = dayjs(weekStart);
@@ -74,64 +75,85 @@ export default function Cohorts() {
   }, [users, orders]);
 
   return (
-    <Screen>
-      <Header title="Cohorts & Retention" subtitle={`${WEEKS}-week window · paid orders`} />
+    <PageScroll>
+      <PageHeader
+        eyebrow="DIME ADMIN · GROWTH · COHORTS"
+        title="Cohorts & retention"
+        subtitle={`${WEEKS}-week window · diners only · paid orders only`}
+        rightSlot={<Pill tone="lilac" icon="chart.bar.fill">Heatmap</Pill>}
+      />
 
-      <View className="mx-5 rounded-2xl bg-white p-5" style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 12, elevation: 2 }}>
-        <Text className="text-[14px] font-bold text-dime-ink" style={{ letterSpacing: -0.5 }}>How to read</Text>
-        <Text className="mt-1 text-[12px] text-dime-ink-3">
-          Each row is a signup week. Columns show what % of that cohort placed at least one paid order in week 0, 1, 2…
-          Healthy products keep colour bright as you move right. LTV is average spend per customer in that cohort to date.
+      <CardShell padded>
+        <Text style={{ fontSize: 13.5, fontWeight: "700", color: ADMIN_INK, letterSpacing: -0.2 }}>How to read this matrix</Text>
+        <Text style={{ marginTop: 6, fontSize: 12.5, color: ADMIN_INK2, lineHeight: 19 }}>
+          Each row is a signup week. Columns show what percentage of that cohort placed at least one paid order in week 0, 1, 2 and onwards.
+          Healthier products keep cells bright as you move right. LTV is average spend per customer in that cohort to date.
         </Text>
-      </View>
+      </CardShell>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-4">
-        <View className="ml-5 mr-5">
-          <View className="flex-row">
-            <Cell label="Cohort" head w={80} />
-            <Cell label="Size" head w={56} />
-            {Array.from({ length: WEEKS }).map((_, i) => (
-              <Cell key={i} label={`W${i}`} head w={48} />
-            ))}
-            <Cell label="LTV" head w={80} />
-          </View>
-          {cohortRows.map((c, idx) => (
-            <View key={idx} className="flex-row">
-              <Cell label={c.week} w={80} />
-              <Cell label={String(c.size)} w={56} />
-              {c.matrix.map((pct, i) => (
-                <View key={i} style={{ width: 48, padding: 2 }}>
-                  <View
-                    style={{
-                      backgroundColor: heatColor(pct),
-                      paddingVertical: 8,
-                      borderRadius: 6,
-                      alignItems: "center",
-                    }}
-                  >
-                    <Text style={{ fontSize: 11, fontWeight: "700", color: pct > 40 ? "#fff" : "#1C1C1E" }}>{pct}%</Text>
-                  </View>
-                </View>
+      <CardShell>
+        <CardHeader title="Retention matrix" subtitle={`${cohortRows.length} cohorts captured`} />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View style={{ paddingHorizontal: 14, paddingVertical: 14 }}>
+            <View style={{ flexDirection: "row" }}>
+              <Cell label="Cohort" head w={88} />
+              <Cell label="Size" head w={56} />
+              {Array.from({ length: WEEKS }).map((_, i) => (
+                <Cell key={i} label={`W${i}`} head w={48} />
               ))}
-              <Cell label={rupees(c.ltv)} w={80} />
+              <Cell label="LTV" head w={92} />
             </View>
-          ))}
-          {cohortRows.length === 0 ? (
-            <View className="px-5 py-12 items-center">
-              <Icon name="chart.bar.fill" size={28} color="#BFBFBF" />
-              <Text className="mt-2 text-[13px] text-dime-ink-3">Not enough signup data yet.</Text>
-            </View>
-          ) : null}
-        </View>
-      </ScrollView>
-    </Screen>
+            {cohortRows.map((c, idx) => (
+              <View key={idx} style={{ flexDirection: "row" }}>
+                <Cell label={c.week} w={88} />
+                <Cell label={String(c.size)} w={56} mono />
+                {c.matrix.map((pct, i) => (
+                  <View key={i} style={{ width: 48, padding: 3 }}>
+                    <View
+                      style={{
+                        backgroundColor: heatColor(pct),
+                        paddingVertical: 8,
+                        borderRadius: 6,
+                        alignItems: "center",
+                        borderWidth: 1, borderColor: heatBorder(pct),
+                      }}
+                    >
+                      <Text style={{ fontSize: 11, fontWeight: "700", color: pct > 40 ? "#fff" : ADMIN_INK2, fontFamily: ADMIN_MONO }}>{pct}%</Text>
+                    </View>
+                  </View>
+                ))}
+                <Cell label={rupees(c.ltv)} w={92} mono />
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+        {cohortRows.length === 0 ? (
+          <EmptyState icon="chart.bar.fill" title="Not enough signup data yet" body="Once new diners sign up over the trailing 8 weeks, the heatmap fills in." compact />
+        ) : null}
+      </CardShell>
+    </PageScroll>
   );
 }
 
-function Cell({ label, w, head }: { label: string; w: number; head?: boolean }) {
+function Cell({ label, w, head, mono }: { label: string; w: number; head?: boolean; mono?: boolean }) {
   return (
-    <View style={{ width: w }} className="px-2 py-2 justify-center">
-      <Text className={`${head ? "text-[10px] font-bold uppercase text-dime-ink-4" : "text-[12px] text-dime-ink-2"}`} style={head ? { letterSpacing: 1.5 } : undefined}>
+    <View
+      style={{
+        width: w, paddingHorizontal: 8, paddingVertical: 8,
+        justifyContent: "center",
+        borderBottomWidth: head ? 1 : 0, borderBottomColor: ADMIN_HAIRLINE,
+      }}
+    >
+      <Text
+        style={{
+          fontSize: head ? 10 : 12,
+          fontWeight: head ? "700" : "600",
+          color: head ? ADMIN_INK3 : ADMIN_INK2,
+          letterSpacing: head ? 1.2 : 0,
+          textTransform: head ? "uppercase" : "none",
+          fontFamily: head || mono ? ADMIN_MONO : undefined,
+        }}
+      >
         {label}
       </Text>
     </View>
@@ -139,12 +161,17 @@ function Cell({ label, w, head }: { label: string; w: number; head?: boolean }) 
 }
 
 function heatColor(pct: number): string {
-  // White → coral gradient.
-  if (pct === 0) return "#FAFAFA";
-  if (pct < 10) return "#FFF4EA";
-  if (pct < 25) return "#FFE4CC";
-  if (pct < 40) return "#FFCF9E";
-  if (pct < 60) return "#FF9654";
-  if (pct < 80) return "#FF6B2C";
-  return "#E05A1F";
+  if (pct === 0) return "#141414";
+  if (pct < 10) return "#1F0F08";
+  if (pct < 25) return "#2B1810";
+  if (pct < 40) return "#5C2E18";
+  if (pct < 60) return "#A03D1A";
+  if (pct < 80) return "#FF5A1F";
+  return "#FF7A3F";
+}
+
+function heatBorder(pct: number): string {
+  if (pct < 25) return "#1F1F1F";
+  if (pct < 60) return "#5C2E18";
+  return "#FF8A50";
 }

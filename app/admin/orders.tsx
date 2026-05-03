@@ -1,11 +1,28 @@
-import { FlatList, Text, View } from "react-native";
-import { Badge, Icon, Screen } from "@/components/ui";
+import { useMemo, useState } from "react";
+import { Pressable, Text, View } from "react-native";
+import { Icon, haptic } from "@/components/ui";
 import { useQuery } from "@tanstack/react-query";
 import { supabase, type Tables } from "@/lib/supabase";
 import { rupees, timeAgo } from "@/lib/format";
+import dayjs from "dayjs";
+import {
+  PageScroll, PageHeader, CardShell, CardHeader, MonoText, EmptyState,
+  StatRow, StatTile, Pill,
+  ADMIN_BG, ADMIN_INK, ADMIN_INK2, ADMIN_INK3, ADMIN_HAIRLINE, ADMIN_HAIRLINE2,
+  ADMIN_PANEL, ADMIN_PANEL2, ADMIN_HOVER, ADMIN_ACCENT, ADMIN_ACCENT2, ADMIN_GREEN, ADMIN_RED, ADMIN_AMBER, ADMIN_MONO,
+} from "@/components/admin/shell";
+
+type StatusFilter = "all" | "paid" | "ready" | "preparing" | "placed" | "cancelled";
+const filters: StatusFilter[] = ["all", "placed", "preparing", "ready", "paid", "cancelled"];
+
+const statusTone: Record<string, "neutral" | "saffron" | "lilac" | "green" | "red" | "amber"> = {
+  placed: "amber", preparing: "saffron", ready: "lilac", paid: "green", cancelled: "red", refunded: "red",
+};
 
 export default function AdminOrders() {
-  const { data } = useQuery({
+  const [filter, setFilter] = useState<StatusFilter>("all");
+
+  const { data, isLoading } = useQuery({
     queryKey: ["admin-orders"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -18,38 +35,88 @@ export default function AdminOrders() {
     },
   });
 
+  const list = data ?? [];
+  const today = list.filter((o) => dayjs(o.created_at).isSame(dayjs(), "day"));
+  const todayGmv = today.reduce((s, o) => s + Number(o.total_amount), 0);
+  const paidCount = list.filter((o) => o.status === "paid").length;
+  const cancelledCount = list.filter((o) => o.status === "cancelled").length;
+  const avg = list.length > 0 ? list.reduce((s, o) => s + Number(o.total_amount), 0) / list.length : 0;
+
+  const filtered = useMemo(() => filter === "all" ? list : list.filter((o) => o.status === filter), [list, filter]);
+
   return (
-    <Screen scroll={false} className="bg-neutral-50">
-      <View className="bg-white px-6 pb-4 pt-5" style={{ borderBottomWidth: 1, borderBottomColor: "rgba(0,0,0,0.04)" }}>
-        <Text className="text-[11px] font-bold uppercase text-dime-ink-4" style={{ letterSpacing: 1.2 }}>Orders</Text>
-        <View className="flex-row items-baseline gap-2">
-          <Text className="text-[24px] font-bold text-dime-ink" style={{ letterSpacing: -0.5 }}>Platform Orders</Text>
-          <Text className="text-[13px] text-dime-ink-4">{data?.length ?? 0} most recent</Text>
-        </View>
-      </View>
-      <FlatList
-        data={data ?? []}
-        keyExtractor={(o) => o.id}
-        contentContainerStyle={{ padding: 20, gap: 8, paddingBottom: 120 }}
-        renderItem={({ item: o }) => (
-          <View
-            className="flex-row items-center gap-4 rounded-2xl bg-white p-4"
-            style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 12, elevation: 2, borderWidth: 1, borderColor: "rgba(0,0,0,0.04)" }}
-          >
-            <View className="h-10 w-10 items-center justify-center rounded-xl bg-dime-primary-50">
-              <Icon name="bag.fill" size={15} color="#EA580C" />
-            </View>
-            <View className="flex-1">
-              <Text className="text-[14px] font-semibold text-dime-ink">{o.order_number}</Text>
-              <Text className="mt-0.5 text-[12px] text-dime-ink-3">{o.restaurants?.name ?? "—"} · {timeAgo(o.created_at)}</Text>
-            </View>
-            <View className="items-end gap-1">
-              <Text className="text-[14px] font-bold text-dime-ink">{rupees(o.total_amount)}</Text>
-              <Badge tone={o.status === "paid" ? "gray" : o.status === "cancelled" ? "red" : "orange"} label={o.status} />
-            </View>
-          </View>
-        )}
+    <PageScroll>
+      <PageHeader
+        title="Platform orders"
+        subtitle={`${list.length} most recent across the network · refresh updates the live feed`}
       />
-    </Screen>
+
+      <StatRow>
+        <StatTile icon="bag.fill" iconBg="#2B1810" iconColor={ADMIN_ACCENT} label="Today" value={String(today.length)} hint={`${rupees(todayGmv)} GMV`} />
+        <StatTile icon="checkmark.circle.fill" iconBg="#0E2F1F" iconColor={ADMIN_GREEN} label="Paid" value={String(paidCount)} hint="Completed orders" />
+        <StatTile icon="xmark.circle.fill" iconBg="#3A1212" iconColor={ADMIN_RED} label="Cancelled" value={String(cancelledCount)} hint={`${list.length > 0 ? Math.round((cancelledCount / list.length) * 100) : 0}% of recent`} />
+        <StatTile icon="indianrupeesign.circle.fill" iconBg="#1B1730" iconColor={ADMIN_ACCENT2} label="Avg ticket" value={rupees(avg)} hint="Across the window" />
+      </StatRow>
+
+      <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
+        {filters.map((f) => {
+          const active = f === filter;
+          const count = f === "all" ? list.length : list.filter((o) => o.status === f).length;
+          return (
+            <Pressable
+              key={f}
+              onPress={() => { haptic.light(); setFilter(f); }}
+              style={{
+                paddingHorizontal: 12, paddingVertical: 7, borderRadius: 7,
+                flexDirection: "row", alignItems: "center", gap: 6,
+                backgroundColor: active ? ADMIN_INK : ADMIN_PANEL,
+                borderWidth: 1, borderColor: active ? ADMIN_INK : ADMIN_HAIRLINE,
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: "700", color: active ? ADMIN_BG : ADMIN_INK2, textTransform: "capitalize" }}>{f}</Text>
+              <Text style={{ fontSize: 11, fontWeight: "600", color: active ? ADMIN_BG : ADMIN_INK3, fontFamily: ADMIN_MONO }}>{count}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <CardShell>
+        <CardHeader title="Order feed" subtitle={`${filtered.length} match`} />
+        {filtered.length === 0 && !isLoading ? (
+          <EmptyState icon="bag.fill" title="No orders here" body="Once orders hit the network, they'll show up live in this feed." compact />
+        ) : null}
+        {filtered.map((o, i) => (
+          <View
+            key={o.id}
+            style={{
+              flexDirection: "row", alignItems: "center", gap: 14,
+              paddingHorizontal: 18, paddingVertical: 12,
+              borderTopWidth: i ? 1 : 0, borderTopColor: ADMIN_HAIRLINE,
+            }}
+          >
+            <View
+              style={{
+                width: 38, height: 38, borderRadius: 9,
+                backgroundColor: ADMIN_PANEL2, borderWidth: 1, borderColor: ADMIN_HAIRLINE2,
+                alignItems: "center", justifyContent: "center",
+              }}
+            >
+              <Icon name="bag.fill" size={15} color={ADMIN_ACCENT} />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <MonoText size={12} weight="700" color={ADMIN_INK}>{o.order_number}</MonoText>
+                <Pill tone={statusTone[o.status] ?? "neutral"}>{o.status}</Pill>
+              </View>
+              <Text numberOfLines={1} style={{ marginTop: 3, fontSize: 12.5, fontWeight: "600", color: ADMIN_INK2 }}>
+                {o.restaurants?.name ?? "—"}
+              </Text>
+              <MonoText size={10.5} color={ADMIN_INK3}>{timeAgo(o.created_at).toUpperCase()}</MonoText>
+            </View>
+            <MonoText size={14} weight="700" color={ADMIN_INK}>{rupees(o.total_amount)}</MonoText>
+          </View>
+        ))}
+      </CardShell>
+    </PageScroll>
   );
 }

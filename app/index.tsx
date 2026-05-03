@@ -21,6 +21,8 @@ export default function Index() {
       requestAnimationFrame(() => router.replace("/admin/dashboard"));
     } else if (profile.role === "owner" || profile.role === "manager") {
       requestAnimationFrame(() => router.replace("/owner/dashboard"));
+    } else if (profile.role === "server" || profile.role === "host" || profile.role === "chef" || profile.role === "cashier") {
+      requestAnimationFrame(() => router.replace("/server/tables"));
     } else {
       requestAnimationFrame(() => router.replace("/home"));
     }

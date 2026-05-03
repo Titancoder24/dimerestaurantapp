@@ -1,70 +1,76 @@
-import { FlatList, Image, Pressable, Text, View } from "react-native";
+import { useMemo } from "react";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { EmptyState, Icon, Screen, Badge } from "@/components/ui";
+import { Icon, Screen, EmptyState } from "@/components/ui";
 import { useMyBookings } from "@/hooks/queries";
 import { fullDate, time12 } from "@/lib/format";
+import { T } from "@/lib/visual";
+import { Img, Pill, display, mono, num } from "@/components/dime/atoms";
+
+const statusStyles: Record<string, { label: string; bg: string; col: string }> = {
+  pending: { label: "PENDING", bg: "#FFEDD7", col: T.saffron },
+  confirmed: { label: "CONFIRMED", bg: T.forestSoft, col: T.forest },
+  arrived: { label: "ARRIVED", bg: T.forestSoft, col: T.forest },
+  completed: { label: "COMPLETED", bg: T.cream, col: T.muted },
+  cancelled: { label: "CANCELLED", bg: T.rubySoft, col: T.ruby },
+  no_show: { label: "NO SHOW", bg: T.rubySoft, col: T.ruby },
+};
 
 export default function Bookings() {
   const router = useRouter();
   const { data } = useMyBookings();
 
-  const statusTone = (s: string): { tone: "green" | "orange" | "gray" | "red"; label: string } => {
-    switch (s) {
-      case "confirmed": return { tone: "green", label: "Confirmed" };
-      case "pending": return { tone: "orange", label: "Pending" };
-      case "arrived": return { tone: "green", label: "Arrived" };
-      case "completed": return { tone: "gray", label: "Completed" };
-      case "cancelled": return { tone: "red", label: "Cancelled" };
-      case "no_show": return { tone: "red", label: "No show" };
-      default: return { tone: "gray", label: s };
-    }
-  };
+  const items = useMemo(() => data ?? [], [data]);
 
   return (
-    <Screen scroll={false}>
-      <View className="bg-white px-4 pb-3 pt-3">
-        <Text className="text-[22px] font-bold text-[#1C1C1E]" style={{ letterSpacing: -0.5 }}>My Bookings</Text>
-        <Text className="mt-0.5 text-[13px] text-[#93959F]">{data?.length ?? 0} reservations</Text>
+    <Screen scroll={false} className="bg-[#F6F2EC]">
+      <View style={{ paddingTop: 14, paddingHorizontal: 18, paddingBottom: 8 }}>
+        <Text style={display(28, "600", -0.6)}>My Bookings</Text>
+        <Text style={[num(12, "500"), { color: T.muted, marginTop: 1 }]}>
+          {items.length} {items.length === 1 ? "reservation" : "reservations"}
+        </Text>
       </View>
 
-      <View className="h-2 bg-[#F2F2F2]" />
-
-      <FlatList
-        data={data ?? []}
-        keyExtractor={(b) => b.id}
-        className="bg-white"
-        contentContainerStyle={{ paddingBottom: 100 }}
-        ItemSeparatorComponent={() => <View className="mx-4 h-px bg-[#F0F0F0]" />}
-        renderItem={({ item }) => {
-          const st = statusTone(item.status);
+      <ScrollView
+        contentContainerStyle={{ paddingHorizontal: 18, gap: 10, paddingTop: 14, paddingBottom: 110 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {items.map((b) => {
+          const st = statusStyles[b.status] ?? { label: b.status.toUpperCase(), bg: T.cream, col: T.muted };
           return (
             <Pressable
-              onPress={() => router.push({ pathname: "/booking/[id]", params: { id: item.id } })}
-              className="flex-row gap-3 px-4 py-3.5"
+              key={b.id}
+              onPress={() => router.push({ pathname: "/booking/[id]", params: { id: b.id } })}
+              style={{
+                backgroundColor: T.card, borderRadius: 16, padding: 12,
+                borderWidth: 1, borderColor: T.hairline,
+                flexDirection: "row", alignItems: "center", gap: 12,
+              }}
             >
-              <View className="overflow-hidden rounded-[12px]">
-                <Image source={{ uri: item.restaurants.cover_image_url ?? "" }} className="h-[76px] w-[76px]" resizeMode="cover" />
-              </View>
-              <View className="flex-1 justify-center">
-                <Text numberOfLines={1} className="text-[15px] font-bold text-[#1C1C1E]" style={{ letterSpacing: -0.2 }}>
-                  {item.restaurants.name}
+              <Img uri={b.restaurants.cover_image_url} kind="restaurant" h={64} w={64} radius={12} hue={28} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text numberOfLines={1} style={{ fontSize: 14.5, fontWeight: "700", letterSpacing: -0.2, color: T.ink }}>
+                  {b.restaurants.name}
                 </Text>
-                <View className="mt-1 flex-row items-center gap-1">
-                  <Icon name="calendar" size={11} color="#93959F" />
-                  <Text className="text-[12px] text-[#535665]">{fullDate(item.date)} · {time12(item.time)}</Text>
-                </View>
-                <Text className="mt-0.5 text-[12px] text-[#93959F]">{item.guests} guests · {item.seating_preference}</Text>
-                <View className="mt-1.5">
-                  <Badge tone={st.tone} label={st.label} />
-                </View>
+                <Text style={{ fontSize: 12, color: T.ink2, marginTop: 2 }}>
+                  {fullDate(b.date)} · {time12(b.time)}
+                </Text>
+                <Text style={{ fontSize: 11.5, color: T.muted, marginTop: 1 }}>
+                  {b.guests} {b.guests === 1 ? "guest" : "guests"} · {b.seating_preference}
+                </Text>
               </View>
-              <View className="justify-center">
-                <Icon name="chevron.right" size={13} color="#D4D4D8" />
-              </View>
+              <Pill
+                bg={st.bg}
+                color={st.col}
+                size={10}
+                textStyle={{ letterSpacing: 1, textTransform: "uppercase", fontFamily: T.fontMono }}
+              >
+                {st.label}
+              </Pill>
             </Pressable>
           );
-        }}
-        ListEmptyComponent={
+        })}
+        {items.length === 0 ? (
           <EmptyState
             icon="calendar"
             title="No bookings yet"
@@ -72,8 +78,8 @@ export default function Bookings() {
             actionLabel="Discover restaurants"
             onAction={() => router.push("/discover")}
           />
-        }
-      />
+        ) : null}
+      </ScrollView>
     </Screen>
   );
 }

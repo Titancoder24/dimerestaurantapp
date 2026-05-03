@@ -1,1007 +1,384 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, ScrollView, Switch, Text, View } from "react-native";
-import { Avatar, Badge, Button, Chip, ChipRow, Header, Icon, Input, Screen, Sheet, haptic } from "@/components/ui";
-import { confirm, actionSheet } from "@/lib/confirm";
-import { useOwnedRestaurant, useRestaurantStaff } from "@/hooks/owner";
-import { useTables } from "@/hooks/queries";
-import { supabase, type Tables } from "@/lib/supabase";
-import { useQueryClient } from "@tanstack/react-query";
+// Owner staff management — invite managers/servers, see live roster, delete.
+import { useState } from "react";
+import { Platform, Pressable, Text, View } from "react-native";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Input, Sheet, Button, Icon, haptic } from "@/components/ui";
+import { useOwnedRestaurant } from "@/hooks/owner";
+import { useAuth } from "@/store/auth";
+import { supabase } from "@/lib/supabase";
 import { useToast } from "@/store/toast";
+import { timeAgo } from "@/lib/format";
+import {
+  PageScroll, PageHeader, CardShell, CardHeader, MonoText, EmptyState, StatusDot, StatRow, StatTile,
+  OWNER_INK, OWNER_MUTED, OWNER_ACCENT, OWNER_HAIRLINE,
+} from "@/components/owner/shell";
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-const permissionKeys = [
-  "view_all_data", "edit_restaurant_profile", "manage_staff", "edit_menu",
-  "toggle_menu_availability", "view_revenue", "view_inventory", "log_expenses",
-  "manage_offers", "access_floor_manager", "assign_tables", "manage_reservations",
-  "take_orders", "view_kitchen_display", "mark_orders_prepared", "generate_bill",
-  "apply_discount_low", "apply_discount_high", "void_order", "close_bill", "reply_to_reviews",
-] as const;
-
-const rolePresets: Record<string, Record<string, boolean>> = {
-  manager: {
-    view_all_data: true, edit_restaurant_profile: true, manage_staff: true, edit_menu: true,
-    toggle_menu_availability: true, view_revenue: true, view_inventory: true, log_expenses: true,
-    manage_offers: true, access_floor_manager: true, assign_tables: true, manage_reservations: true,
-    take_orders: true, view_kitchen_display: true, mark_orders_prepared: true, generate_bill: true,
-    apply_discount_low: true, apply_discount_high: true, void_order: true, close_bill: true, reply_to_reviews: true,
-  },
-  chef: {
-    view_kitchen_display: true, mark_orders_prepared: true, view_inventory: true,
-  },
-  server: {
-    take_orders: true, view_kitchen_display: true, generate_bill: true,
-    access_floor_manager: true, apply_discount_low: true,
-  },
-  host: {
-    manage_reservations: true, assign_tables: true, access_floor_manager: true,
-  },
-  cashier: {
-    generate_bill: true, close_bill: true, apply_discount_low: true, view_revenue: true,
-  },
+type StaffRow = {
+  id: string;
+  restaurant_id: string;
+  user_id: string | null;
+  name: string;
+  phone: string | null;
+  role: string;
+  pin: string;
+  permissions: Record<string, boolean>;
+  is_active: boolean;
+  created_at: string;
+  user?: { name: string | null; email: string; avatar_url: string | null } | null;
 };
 
-const roleTone: Record<string, "orange" | "gold" | "blue" | "green" | "gray"> = {
-  owner: "gold",
-  manager: "orange",
-  chef: "blue",
-  server: "green",
-  host: "green",
-  cashier: "gray",
+type InviteRow = {
+  id: string;
+  code: string;
+  restaurant_id: string;
+  email: string;
+  name: string;
+  phone: string | null;
+  role: string;
+  pin: string;
+  expires_at: string;
+  consumed_at: string | null;
+  created_at: string;
 };
 
-const roleOptions: ("manager" | "chef" | "server" | "host" | "cashier")[] = [
-  "manager", "chef", "server", "host", "cashier",
-];
-
-const roleIcons: Record<string, string> = {
-  owner: "crown.fill",
-  manager: "person.badge.key.fill",
-  chef: "frying.pan.fill",
-  server: "tray.fill",
-  host: "person.wave.2.fill",
-  cashier: "creditcard.fill",
+const ROLE_DOT: Record<string, string> = {
+  owner: "#FF5A1F",
+  manager: "#6F5BFF",
+  server: "#0F8A4F",
+  host: "#3358D4",
+  chef: "#D43A2F",
+  cashier: "#D97706",
 };
 
-const cardShadow = {
-  shadowColor: "#000",
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.04,
-  shadowRadius: 12,
-  elevation: 2,
-};
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function generatePin(): string {
-  return String(Math.floor(1000 + Math.random() * 9000));
-}
-
-function formatPermissionLabel(key: string): string {
-  return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-// ---------------------------------------------------------------------------
-// Main Screen
-// ---------------------------------------------------------------------------
-
-export default function Staff() {
+export default function OwnerStaff() {
+  const { data: restaurant } = useOwnedRestaurant();
+  const me = useAuth((s) => s.profile);
   const qc = useQueryClient();
   const toast = useToast();
-  const { data: restaurant } = useOwnedRestaurant();
-  const { data: staff, isLoading } = useRestaurantStaff(restaurant?.id);
 
-  const [addVisible, setAddVisible] = useState(false);
-  const [editTarget, setEditTarget] = useState<Tables<"staff"> | null>(null);
-
-  const roleCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const s of staff ?? []) {
-      counts[s.role] = (counts[s.role] ?? 0) + 1;
-    }
-    return counts;
-  }, [staff]);
-
-  const activeCount = useMemo(() => (staff ?? []).filter((s) => s.is_active).length, [staff]);
-
-  function handleLongPress(s: Tables<"staff">) {
-    if (s.role === "owner") return;
-    actionSheet(s.name, [
-      {
-        label: s.is_active ? "Deactivate" : "Activate",
-        onPress: () => toggleActive(s),
-      },
-      {
-        label: "Delete",
-        destructive: true,
-        onPress: () => handleDelete(s),
-      },
-    ]);
-  }
-
-  async function toggleActive(s: Tables<"staff">) {
-    try {
-      const { error } = await supabase
+  const { data: staff } = useQuery({
+    queryKey: ["staff", restaurant?.id],
+    enabled: !!restaurant?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
         .from("staff")
-        .update({ is_active: !s.is_active, updated_at: new Date().toISOString() })
-        .eq("id", s.id);
+        .select("*, user:users(name, email, avatar_url)")
+        .eq("restaurant_id", restaurant!.id)
+        .order("created_at", { ascending: false });
       if (error) throw error;
-      qc.invalidateQueries({ queryKey: ["restaurant-staff"] });
-      haptic.success();
-      toast.success(s.is_active ? "Staff deactivated" : "Staff activated");
-    } catch (e) {
-      haptic.error();
-      toast.error("Failed to update", (e as Error).message);
+      return data as StaffRow[];
+    },
+  });
+
+  const { data: invites } = useQuery({
+    queryKey: ["staff_invites", restaurant?.id],
+    enabled: !!restaurant?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("staff_invites")
+        .select("*")
+        .eq("restaurant_id", restaurant!.id)
+        .is("consumed_at", null)
+        .gt("expires_at", new Date().toISOString())
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as InviteRow[];
+    },
+  });
+
+  const inviteMut = useMutation({
+    mutationFn: async (params: { name: string; email: string; phone?: string; role: string; pin?: string }) => {
+      if (!restaurant?.id || !me?.id) throw new Error("No restaurant");
+      const insert: Record<string, unknown> = {
+        restaurant_id: restaurant.id,
+        email: params.email.trim().toLowerCase(),
+        name: params.name.trim(),
+        phone: params.phone?.trim() || null,
+        role: params.role,
+        invited_by: me.id,
+      };
+      if (params.pin?.trim()) insert.pin = params.pin.trim();
+      const { data, error } = await supabase.from("staff_invites").insert(insert as never).select().single();
+      if (error) throw error;
+      return data as InviteRow;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["staff_invites"] }),
+  });
+
+  const deleteStaff = useMutation({
+    mutationFn: async (staffId: string) => {
+      const { error } = await supabase.rpc("owner_delete_staff", { p_staff_id: staffId });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["staff"] });
+      toast.success("Staff removed");
+    },
+  });
+
+  const revokeInvite = useMutation({
+    mutationFn: async (inviteId: string) => {
+      const { error } = await supabase.from("staff_invites").delete().eq("id", inviteId);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["staff_invites"] }),
+  });
+
+  const [showInvite, setShowInvite] = useState(false);
+  const [iName, setIName] = useState("");
+  const [iEmail, setIEmail] = useState("");
+  const [iPhone, setIPhone] = useState("");
+  const [iRole, setIRole] = useState<"manager" | "server" | "host" | "chef" | "cashier">("manager");
+  const [iPin, setIPin] = useState("");
+  const [createdInvite, setCreatedInvite] = useState<InviteRow | null>(null);
+
+  const submitInvite = async () => {
+    if (!iName.trim() || !iEmail.trim()) {
+      toast.error("Name and email are required");
+      return;
     }
-  }
+    try {
+      const inv = await inviteMut.mutateAsync({
+        name: iName, email: iEmail, phone: iPhone, role: iRole, pin: iPin || undefined,
+      });
+      setCreatedInvite(inv);
+      setIName(""); setIEmail(""); setIPhone(""); setIPin("");
+      haptic.success();
+    } catch (e) {
+      toast.error("Could not invite", (e as Error).message);
+    }
+  };
 
-  async function handleDelete(s: Tables<"staff">) {
-    confirm("Delete staff member?", `This will permanently remove ${s.name} and unassign their tables.`, async () => {
+  const inviteUrl = (code: string) => {
+    if (typeof window !== "undefined") return `${window.location.origin}/invite/${code}`;
+    return `https://dimerestaurantapp.vercel.app/invite/${code}`;
+  };
+
+  const copyInvite = async (url: string) => {
+    if (Platform.OS === "web" && typeof navigator !== "undefined" && navigator.clipboard) {
       try {
-        // Unassign any tables assigned to this staff member
-        const { error: tableErr } = await supabase
-          .from("tables")
-          .update({ assigned_server_id: null })
-          .eq("assigned_server_id", s.id);
-        if (tableErr) throw tableErr;
-
-        const { error } = await supabase.from("staff").delete().eq("id", s.id);
-        if (error) throw error;
-
-        qc.invalidateQueries({ queryKey: ["restaurant-staff"] });
-        qc.invalidateQueries({ queryKey: ["tables"] });
-        haptic.success();
-        toast.success("Staff deleted", `${s.name} has been removed.`);
-      } catch (e) {
-        haptic.error();
-        toast.error("Failed to delete", (e as Error).message);
+        await navigator.clipboard.writeText(url);
+        toast.success("Invite link copied");
+        return;
+      } catch {
+        // fall through
       }
-    });
-  }
+    }
+    toast.success("Link", url);
+  };
 
-  const renderItem = useCallback(
-    ({ item: s }: { item: Tables<"staff"> }) => (
-      <Pressable
-        onPress={() => setEditTarget(s)}
-        onLongPress={() => handleLongPress(s)}
-        className="flex-row items-center gap-4 rounded-2xl bg-white p-4"
-        style={cardShadow}
-      >
-        <Avatar name={s.name} size={48} />
-        <View className="flex-1">
-          <View className="flex-row items-center gap-2">
-            <Text className="text-[15px] font-bold text-dime-ink" style={{ letterSpacing: -0.3 }}>
-              {s.name}
-            </Text>
-            {!s.is_active && (
-              <Badge tone="red" label="Inactive" />
-            )}
-          </View>
-          <Text className="mt-0.5 text-[12px] text-dime-ink-3">
-            PIN {s.pin} {s.phone ? `• ${s.phone}` : ""}
-          </Text>
-          <View className="mt-1.5">
-            <Badge tone={roleTone[s.role] ?? "gray"} label={s.role} />
-          </View>
-        </View>
-        <Icon name="chevron.right" size={14} color="#C7C7CC" />
-      </Pressable>
-    ),
-    [],
-  );
+  const list = staff ?? [];
+  const managers = list.filter((s) => s.role === "manager" && s.is_active).length;
+  const servers = list.filter((s) => s.role === "server" && s.is_active).length;
+  const pending = (invites ?? []).length;
+  const total = list.filter((s) => s.is_active).length;
 
   return (
-    <Screen scroll={false}>
-      <Header
-        title="Staff"
-        subtitle={`${staff?.length ?? 0} members • ${activeCount} active`}
-        right={
-          <Pressable
-            onPress={() => setAddVisible(true)}
-            className="rounded-full bg-dime-primary-500 px-3.5 py-1.5"
-          >
-            <Text className="text-[12px] font-bold text-white">+ Add Staff</Text>
-          </Pressable>
-        }
+    <PageScroll>
+      <PageHeader
+        title="Staff & roles"
+        subtitle="Invite managers and servers. Each gets a unique invite link."
+        rightAction="Invite staff"
+        actionIcon="plus"
+        onAction={() => { setCreatedInvite(null); setShowInvite(true); }}
       />
 
-      {/* Role summary tiles */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 20, gap: 8, paddingBottom: 4 }}
-        className="mb-2"
-      >
-        {(["owner", "manager", "chef", "server", "host", "cashier"] as const).map((role) => {
-          const count = roleCounts[role] ?? 0;
-          if (count === 0) return null;
-          const bg = {
-            owner: "bg-amber-500",
-            manager: "bg-dime-primary-500",
-            chef: "bg-blue-500",
-            server: "bg-emerald-500",
-            host: "bg-teal-500",
-            cashier: "bg-neutral-500",
-          }[role];
-          return (
-            <View key={role} className={`items-center rounded-2xl ${bg} px-4 py-3`} style={{ minWidth: 80 }}>
-              <Text className="text-[20px] font-bold text-white">{count}</Text>
-              <Text
-                className="text-[9px] font-bold uppercase text-white/90"
-                style={{ letterSpacing: 1.2 }}
+      <StatRow>
+        <StatTile icon="person.2.fill" label="Active staff" value={String(total)} hint="Currently on roster" />
+        <StatTile icon="briefcase.fill" iconColor={OWNER_ACCENT} iconBg="#EEEAF6" label="Managers" value={String(managers)} hint="Admin-level access" />
+        <StatTile icon="figure.walk" iconColor="#0F8A4F" iconBg="#E6F4ED" label="Servers" value={String(servers)} hint="Floor + service access" />
+        <StatTile icon="hourglass" iconColor="#D97706" iconBg="#FFF7E0" label="Pending invites" value={String(pending)} hint="Awaiting redemption" />
+      </StatRow>
+
+      <CardShell>
+        <CardHeader title="Active staff" subtitle={`${list.length} ${list.length === 1 ? "member" : "members"}`} />
+        {list.length === 0 ? (
+          <EmptyState
+            icon="person.2.fill"
+            title="No staff yet"
+            body="Invite managers to access the dashboard, or servers to take orders. Each gets their own login and you can revoke access any time."
+            actionLabel="Invite first staff"
+            onAction={() => { setCreatedInvite(null); setShowInvite(true); }}
+          />
+        ) : null}
+        {list.map((s, i) => (
+          <View
+            key={s.id}
+            style={{
+              flexDirection: "row", alignItems: "center", gap: 12,
+              paddingHorizontal: 18, paddingVertical: 12,
+              borderTopWidth: i ? 1 : 0, borderTopColor: OWNER_HAIRLINE,
+            }}
+          >
+            <View
+              style={{
+                width: 32, height: 32, borderRadius: 999,
+                backgroundColor: "#F5F5F4",
+                alignItems: "center", justifyContent: "center",
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: "700", color: OWNER_INK }}>
+                {(s.user?.name ?? s.name).split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase()}
+              </Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 13, fontWeight: "600", color: OWNER_INK }}>{s.user?.name ?? s.name}</Text>
+              <View style={{ marginTop: 2, flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <StatusDot color={ROLE_DOT[s.role] ?? OWNER_MUTED} />
+                <MonoText size={11} color={OWNER_MUTED}>
+                  {s.role.toUpperCase()} · PIN {s.pin} · joined {timeAgo(s.created_at)}
+                </MonoText>
+              </View>
+            </View>
+            <View style={{ flexDirection: "row", gap: 6 }}>
+              <View
+                style={{
+                  paddingHorizontal: 7, paddingVertical: 3, borderRadius: 4,
+                  backgroundColor: s.is_active ? "#E6F4ED" : "#F5F5F4",
+                }}
               >
-                {role}{count !== 1 ? "s" : ""}
+                <Text style={{ fontSize: 10, fontWeight: "700", color: s.is_active ? "#0F8A4F" : OWNER_MUTED, fontFamily: '"IBM Plex Mono", ui-monospace, monospace' }}>
+                  {s.is_active ? "ACTIVE" : "OFF"}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => {
+                  if (Platform.OS === "web" && !window.confirm(`Remove ${s.name}? They'll lose access immediately.`)) return;
+                  deleteStaff.mutate(s.id);
+                }}
+                style={{
+                  width: 28, height: 28, borderRadius: 6,
+                  backgroundColor: "#FCEAE6",
+                  alignItems: "center", justifyContent: "center",
+                }}
+              >
+                <Icon name="trash.fill" size={11} color="#D43A2F" />
+              </Pressable>
+            </View>
+          </View>
+        ))}
+      </CardShell>
+
+      <CardShell>
+        <CardHeader title="Pending invites" subtitle={`${pending} unredeemed`} />
+        {pending === 0 ? (
+          <EmptyState
+            icon="paperplane.fill"
+            title="No pending invites"
+            body="When you invite someone, the link appears here until they sign up. Links expire after 14 days."
+            compact
+          />
+        ) : null}
+        {(invites ?? []).map((inv, i) => {
+          const url = inviteUrl(inv.code);
+          return (
+            <View
+              key={inv.id}
+              style={{
+                paddingHorizontal: 18, paddingVertical: 12,
+                borderTopWidth: i ? 1 : 0, borderTopColor: OWNER_HAIRLINE,
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                <View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: "#FFF7E0", alignItems: "center", justifyContent: "center" }}>
+                  <Icon name="hourglass" size={13} color="#D97706" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 13, fontWeight: "600", color: OWNER_INK }}>
+                    {inv.name} · <Text style={{ color: OWNER_MUTED, fontWeight: "500" }}>{inv.email}</Text>
+                  </Text>
+                  <MonoText size={11} color={OWNER_MUTED}>
+                    {inv.role.toUpperCase()} · PIN {inv.pin} · expires {new Date(inv.expires_at).toLocaleDateString()}
+                  </MonoText>
+                </View>
+                <Pressable
+                  onPress={() => copyInvite(url)}
+                  style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, backgroundColor: OWNER_INK }}
+                >
+                  <Text style={{ fontSize: 11, fontWeight: "700", color: "#fff" }}>Copy link</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => revokeInvite.mutate(inv.id)}
+                  style={{ width: 28, height: 28, borderRadius: 6, backgroundColor: "#FCEAE6", alignItems: "center", justifyContent: "center" }}
+                >
+                  <Icon name="xmark" size={11} color="#D43A2F" />
+                </Pressable>
+              </View>
+              <Text numberOfLines={1} style={{ marginTop: 6, fontSize: 11, color: OWNER_ACCENT, fontFamily: '"IBM Plex Mono", ui-monospace, monospace' }}>
+                {url}
               </Text>
             </View>
           );
         })}
-      </ScrollView>
+      </CardShell>
 
-      {isLoading ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#FF6B2C" />
-        </View>
-      ) : (
-        <FlatList
-          data={staff ?? []}
-          keyExtractor={(s) => s.id}
-          contentContainerStyle={{ padding: 20, gap: 10, paddingBottom: 120 }}
-          renderItem={renderItem}
-          ListEmptyComponent={
-            <View className="items-center py-20">
-              <Icon name="person.3.fill" size={36} color="#BFBFBF" />
-              <Text className="mt-3 text-[15px] font-bold text-dime-ink">No staff members</Text>
-              <Text className="mt-1 text-[13px] text-dime-ink-3">
-                Tap + Add Staff to get started.
+      <Sheet visible={showInvite} onClose={() => setShowInvite(false)} maxHeight="92%">
+        <Sheet.Body>
+          {createdInvite ? (
+            <View style={{ alignItems: "center", paddingVertical: 8 }}>
+              <View style={{ width: 56, height: 56, borderRadius: 999, backgroundColor: "#E6F4ED", alignItems: "center", justifyContent: "center" }}>
+                <Icon name="checkmark.circle.fill" size={28} color="#0F8A4F" />
+              </View>
+              <Text style={{ marginTop: 14, fontSize: 18, fontWeight: "700", color: OWNER_INK, letterSpacing: -0.4 }}>
+                Invite created
               </Text>
-            </View>
-          }
-        />
-      )}
-
-      {/* Add Staff Sheet */}
-      <AddStaffSheet
-        visible={addVisible}
-        restaurantId={restaurant?.id}
-        existingPins={(staff ?? []).map((s) => s.pin)}
-        onClose={() => setAddVisible(false)}
-        onSaved={() => {
-          setAddVisible(false);
-          qc.invalidateQueries({ queryKey: ["restaurant-staff"] });
-        }}
-      />
-
-      {/* Edit Staff Sheet */}
-      <EditStaffSheet
-        staff={editTarget}
-        restaurantId={restaurant?.id}
-        existingPins={(staff ?? []).filter((s) => s.id !== editTarget?.id).map((s) => s.pin)}
-        onClose={() => setEditTarget(null)}
-        onSaved={() => {
-          setEditTarget(null);
-          qc.invalidateQueries({ queryKey: ["restaurant-staff"] });
-        }}
-        onDeleted={() => {
-          setEditTarget(null);
-          qc.invalidateQueries({ queryKey: ["restaurant-staff"] });
-          qc.invalidateQueries({ queryKey: ["tables"] });
-        }}
-      />
-    </Screen>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Add Staff Sheet
-// ---------------------------------------------------------------------------
-
-function AddStaffSheet({
-  visible,
-  restaurantId,
-  existingPins,
-  onClose,
-  onSaved,
-}: {
-  visible: boolean;
-  restaurantId?: string;
-  existingPins: string[];
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const toast = useToast();
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [role, setRole] = useState<(typeof roleOptions)[number]>("server");
-  const [pin, setPin] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  // Errors
-  const [nameErr, setNameErr] = useState("");
-  const [pinErr, setPinErr] = useState("");
-
-  // Reset form when sheet opens
-  useEffect(() => {
-    if (visible) {
-      setName("");
-      setPhone("");
-      setRole("server");
-      setPin(generateUniquePin(existingPins));
-      setNameErr("");
-      setPinErr("");
-    }
-  }, [visible]);
-
-  function generateUniquePin(existing: string[]): string {
-    const set = new Set(existing);
-    let attempts = 0;
-    let p = generatePin();
-    while (set.has(p) && attempts < 100) {
-      p = generatePin();
-      attempts++;
-    }
-    return p;
-  }
-
-  function validate(): boolean {
-    let valid = true;
-    if (!name.trim()) {
-      setNameErr("Name is required");
-      valid = false;
-    } else {
-      setNameErr("");
-    }
-    if (!/^\d{4}$/.test(pin)) {
-      setPinErr("PIN must be exactly 4 digits");
-      valid = false;
-    } else if (existingPins.includes(pin)) {
-      setPinErr("This PIN is already in use");
-      valid = false;
-    } else {
-      setPinErr("");
-    }
-    return valid;
-  }
-
-  async function save() {
-    if (!restaurantId) return;
-    if (!validate()) {
-      haptic.error();
-      return;
-    }
-    setSaving(true);
-    try {
-      const permissions = rolePresets[role] ?? {};
-      const { error } = await supabase.from("staff").insert({
-        restaurant_id: restaurantId,
-        name: name.trim(),
-        phone: phone.trim() || null,
-        role,
-        pin,
-        permissions,
-        is_active: true,
-      });
-      if (error) throw error;
-      haptic.success();
-      toast.success("Staff added", `${name.trim()} joined as ${role}.`);
-      onSaved();
-    } catch (e) {
-      haptic.error();
-      toast.error("Failed to add staff", (e as Error).message);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Sheet visible={visible} onClose={onClose} maxHeight="85%">
-      <Sheet.Body>
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-          <Text
-            className="text-[20px] font-bold text-dime-ink"
-            style={{ letterSpacing: -0.5 }}
-          >
-            Add Staff Member
-          </Text>
-          <Text className="mt-1 text-[13px] text-dime-ink-3">
-            New team members get default permissions based on their role.
-          </Text>
-
-          <View className="mt-6 gap-4">
-            {/* Name */}
-            <Input
-              label="Name"
-              placeholder="Full name"
-              value={name}
-              onChangeText={(v) => {
-                setName(v);
-                if (nameErr) setNameErr("");
-              }}
-              error={nameErr}
-              autoCapitalize="words"
-            />
-
-            {/* Phone */}
-            <Input
-              label="Phone"
-              placeholder="Optional"
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
-            />
-
-            {/* Role */}
-            <View>
-              <Text
-                className="mb-2 text-[13px] font-semibold uppercase tracking-wider text-dime-ink-3"
+              <Text style={{ marginTop: 4, fontSize: 12, color: OWNER_MUTED, textAlign: "center", maxWidth: 320 }}>
+                Share this link with <Text style={{ fontWeight: "700" }}>{createdInvite.name}</Text>. They'll set a password and be linked as a <Text style={{ fontWeight: "700" }}>{createdInvite.role}</Text>.
+              </Text>
+              <View
+                style={{
+                  marginTop: 18, alignSelf: "stretch",
+                  backgroundColor: "#F5F5F4", padding: 14, borderRadius: 10,
+                  borderWidth: 1, borderColor: OWNER_HAIRLINE,
+                }}
               >
-                Role
-              </Text>
-              <ChipRow>
-                {roleOptions.map((r) => (
-                  <Chip
-                    key={r}
-                    label={r.charAt(0).toUpperCase() + r.slice(1)}
-                    selected={role === r}
-                    onPress={() => setRole(r)}
-                  />
-                ))}
-              </ChipRow>
+                <MonoText size={12} color={OWNER_INK}>{inviteUrl(createdInvite.code)}</MonoText>
+                <Text style={{ marginTop: 6, fontSize: 11, color: OWNER_MUTED }}>
+                  Server PIN: <MonoText size={11} weight="700">{createdInvite.pin}</MonoText> · Expires {new Date(createdInvite.expires_at).toLocaleDateString()}
+                </Text>
+              </View>
+              <View style={{ marginTop: 16, alignSelf: "stretch", flexDirection: "row", gap: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <Button label="Copy link" onPress={() => copyInvite(inviteUrl(createdInvite.code))} fullWidth />
+                </View>
+                <Button label="Done" variant="secondary" onPress={() => setShowInvite(false)} />
+              </View>
             </View>
-
-            {/* PIN */}
+          ) : (
             <View>
-              <Input
-                label="PIN"
-                placeholder="4-digit PIN"
-                value={pin}
-                onChangeText={(v) => {
-                  setPin(v.replace(/\D/g, "").slice(0, 4));
-                  if (pinErr) setPinErr("");
-                }}
-                keyboardType="number-pad"
-                maxLength={4}
-                error={pinErr}
-                trailing={
-                  <Pressable
-                    onPress={() => {
-                      setPin(generateUniquePin(existingPins));
-                      haptic.light();
-                    }}
-                    hitSlop={8}
-                  >
-                    <Icon name="arrow.clockwise" size={16} color="#FF6B2C" />
-                  </Pressable>
-                }
-              />
-              <Text className="mt-1 text-[11px] text-dime-ink-4">
-                Staff use this PIN to clock in on the POS terminal.
+              <Text style={{ fontSize: 18, fontWeight: "700", color: OWNER_INK, letterSpacing: -0.4 }}>Invite staff</Text>
+              <Text style={{ marginTop: 4, fontSize: 12, color: OWNER_MUTED }}>
+                They get a unique link to set their password and join your restaurant.
               </Text>
-            </View>
-
-            {/* Default permissions preview */}
-            <View>
-              <Text
-                className="mb-2 text-[11px] font-bold uppercase text-dime-ink-4"
-                style={{ letterSpacing: 1.5 }}
-              >
-                Default Permissions ({role})
-              </Text>
-              <View className="rounded-2xl bg-white p-3" style={cardShadow}>
-                {permissionKeys.map((k) => {
-                  const enabled = !!rolePresets[role]?.[k];
-                  return (
-                    <View key={k} className="flex-row items-center justify-between py-1.5">
-                      <Text
-                        className={`flex-1 text-[12px] ${enabled ? "text-dime-ink-2" : "text-dime-ink-4"}`}
-                      >
-                        {formatPermissionLabel(k)}
-                      </Text>
-                      <View
-                        className={`h-5 w-5 items-center justify-center rounded-full ${
-                          enabled ? "bg-emerald-100" : "bg-neutral-100"
-                        }`}
-                      >
-                        <Icon
-                          name={enabled ? "checkmark" : "xmark"}
-                          size={10}
-                          color={enabled ? "#059669" : "#A3A3A3"}
-                        />
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-              <Text className="mt-1.5 text-[11px] text-dime-ink-4">
-                You can customize permissions after adding.
-              </Text>
-            </View>
-          </View>
-
-          <View className="mt-6 gap-3">
-            <Button label="Add Staff Member" loading={saving} onPress={save} fullWidth />
-            <Button label="Cancel" variant="ghost" onPress={onClose} fullWidth />
-          </View>
-        </ScrollView>
-      </Sheet.Body>
-    </Sheet>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Edit Staff Sheet
-// ---------------------------------------------------------------------------
-
-function EditStaffSheet({
-  staff,
-  restaurantId,
-  existingPins,
-  onClose,
-  onSaved,
-  onDeleted,
-}: {
-  staff: Tables<"staff"> | null;
-  restaurantId?: string;
-  existingPins: string[];
-  onClose: () => void;
-  onSaved: () => void;
-  onDeleted: () => void;
-}) {
-  const toast = useToast();
-  const qc = useQueryClient();
-  const { data: tables } = useTables(restaurantId);
-
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [role, setRole] = useState<string>("server");
-  const [pin, setPin] = useState("");
-  const [permissions, setPermissions] = useState<Record<string, boolean>>({});
-  const [saving, setSaving] = useState(false);
-
-  // Errors
-  const [nameErr, setNameErr] = useState("");
-  const [pinErr, setPinErr] = useState("");
-
-  // Populate form when staff changes
-  useEffect(() => {
-    if (!staff) return;
-    setName(staff.name);
-    setPhone(staff.phone ?? "");
-    setRole(staff.role);
-    setPin(staff.pin);
-    setPermissions(staff.permissions ?? {});
-    setNameErr("");
-    setPinErr("");
-  }, [staff?.id]);
-
-  const isOwner = staff?.role === "owner";
-  const showTableAssignment = role === "server" || role === "host";
-
-  // Tables assigned to this staff member
-  const assignedTables = useMemo(
-    () => (tables ?? []).filter((t) => t.assigned_server_id === staff?.id),
-    [tables, staff?.id],
-  );
-
-  // Tables with no assignment (available to assign)
-  const unassignedTables = useMemo(
-    () => (tables ?? []).filter((t) => !t.assigned_server_id),
-    [tables],
-  );
-
-  function validate(): boolean {
-    let valid = true;
-    if (!name.trim()) {
-      setNameErr("Name is required");
-      valid = false;
-    } else {
-      setNameErr("");
-    }
-    if (!/^\d{4}$/.test(pin)) {
-      setPinErr("PIN must be exactly 4 digits");
-      valid = false;
-    } else if (existingPins.includes(pin)) {
-      setPinErr("This PIN is already in use by another staff member");
-      valid = false;
-    } else {
-      setPinErr("");
-    }
-    return valid;
-  }
-
-  function togglePermission(key: string) {
-    setPermissions((prev) => ({ ...prev, [key]: !prev[key] }));
-  }
-
-  function resetPermissionsToPreset() {
-    if (rolePresets[role]) {
-      setPermissions({ ...rolePresets[role] });
-      haptic.light();
-      toast.info("Permissions reset", `Applied ${role} defaults.`);
-    }
-  }
-
-  async function assignTable(tableId: string) {
-    if (!staff) return;
-    try {
-      const { error } = await supabase
-        .from("tables")
-        .update({ assigned_server_id: staff.id })
-        .eq("id", tableId);
-      if (error) throw error;
-      qc.invalidateQueries({ queryKey: ["tables"] });
-      haptic.light();
-    } catch (e) {
-      haptic.error();
-      toast.error("Failed to assign table", (e as Error).message);
-    }
-  }
-
-  async function unassignTable(tableId: string) {
-    try {
-      const { error } = await supabase
-        .from("tables")
-        .update({ assigned_server_id: null })
-        .eq("id", tableId);
-      if (error) throw error;
-      qc.invalidateQueries({ queryKey: ["tables"] });
-      haptic.light();
-    } catch (e) {
-      haptic.error();
-      toast.error("Failed to unassign table", (e as Error).message);
-    }
-  }
-
-  async function save() {
-    if (!staff || !restaurantId) return;
-    if (!validate()) {
-      haptic.error();
-      return;
-    }
-    setSaving(true);
-    try {
-      const updates: Record<string, unknown> = {
-        name: name.trim(),
-        phone: phone.trim() || null,
-        pin,
-        permissions,
-        updated_at: new Date().toISOString(),
-      };
-      // Only allow role change for non-owners
-      if (!isOwner) {
-        updates.role = role;
-      }
-      const { error } = await supabase.from("staff").update(updates).eq("id", staff.id);
-      if (error) throw error;
-      haptic.success();
-      toast.success("Staff updated", `${name.trim()} saved.`);
-      onSaved();
-    } catch (e) {
-      haptic.error();
-      toast.error("Failed to save", (e as Error).message);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function handleDeactivate() {
-    if (!staff) return;
-    confirm(
-      staff.is_active ? "Deactivate staff?" : "Activate staff?",
-      staff.is_active
-        ? `${staff.name} will lose access to the POS system.`
-        : `${staff.name} will regain access.`,
-      async () => {
-        try {
-          const { error } = await supabase
-            .from("staff")
-            .update({ is_active: !staff.is_active, updated_at: new Date().toISOString() })
-            .eq("id", staff.id);
-          if (error) throw error;
-          qc.invalidateQueries({ queryKey: ["restaurant-staff"] });
-          haptic.success();
-          toast.success(staff.is_active ? "Staff deactivated" : "Staff activated");
-          onClose();
-        } catch (e) {
-          haptic.error();
-          toast.error("Failed to update", (e as Error).message);
-        }
-      },
-      staff.is_active,
-    );
-  }
-
-  async function handleDelete() {
-    if (!staff) return;
-    confirm(
-      "Delete staff member?",
-      `This will permanently remove ${staff.name} and unassign their tables. This cannot be undone.`,
-      async () => {
-        try {
-          // Unassign any tables assigned to this staff member
-          await supabase
-            .from("tables")
-            .update({ assigned_server_id: null })
-            .eq("assigned_server_id", staff.id);
-
-          const { error } = await supabase.from("staff").delete().eq("id", staff.id);
-          if (error) throw error;
-          haptic.success();
-          toast.success("Staff deleted", `${staff.name} has been removed.`);
-          onDeleted();
-        } catch (e) {
-          haptic.error();
-          toast.error("Failed to delete", (e as Error).message);
-        }
-      },
-    );
-  }
-
-  return (
-    <Sheet visible={!!staff} onClose={onClose} maxHeight="92%">
-      <Sheet.Body>
-        {staff ? (
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 40 }}
-          >
-            {/* Header */}
-            <View className="mb-5 flex-row items-center gap-4">
-              <Avatar name={name || staff.name} size={52} />
-              <View className="flex-1">
-                <Text
-                  className="text-[18px] font-bold text-dime-ink"
-                  style={{ letterSpacing: -0.5 }}
-                >
-                  {isOwner ? staff.name : "Edit Staff"}
-                </Text>
-                <View className="mt-1 flex-row items-center gap-2">
-                  <Badge tone={roleTone[staff.role] ?? "gray"} label={staff.role} />
-                  {!staff.is_active && <Badge tone="red" label="Inactive" />}
+              <View style={{ marginTop: 16, gap: 12 }}>
+                <Input label="Full name" value={iName} onChangeText={setIName} placeholder="e.g. Aarav Mehta" />
+                <Input label="Email" value={iEmail} onChangeText={setIEmail} keyboardType="email-address" autoCapitalize="none" placeholder="aarav@example.com" />
+                <Input label="Phone (optional)" value={iPhone} onChangeText={setIPhone} keyboardType="phone-pad" />
+                <Text style={{ fontSize: 11, fontWeight: "700", color: OWNER_MUTED, letterSpacing: 1 }}>ROLE</Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                  {(["manager", "server", "host", "chef", "cashier"] as const).map((r) => (
+                    <Pressable
+                      key={r}
+                      onPress={() => setIRole(r)}
+                      style={{
+                        paddingHorizontal: 12, paddingVertical: 8, borderRadius: 7,
+                        backgroundColor: iRole === r ? OWNER_INK : "#fff",
+                        borderWidth: 1, borderColor: iRole === r ? OWNER_INK : OWNER_HAIRLINE,
+                        flexDirection: "row", alignItems: "center", gap: 5,
+                      }}
+                    >
+                      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: ROLE_DOT[r] ?? OWNER_MUTED }} />
+                      <Text style={{ fontSize: 12, fontWeight: "600", color: iRole === r ? "#fff" : OWNER_INK, textTransform: "capitalize" }}>{r}</Text>
+                    </Pressable>
+                  ))}
                 </View>
+                <Input label="PIN (optional — auto-generated if blank)" value={iPin} onChangeText={setIPin} keyboardType="number-pad" placeholder="4-digit" />
+                <Button label="Generate invite link" onPress={submitInvite} loading={inviteMut.isPending} />
               </View>
             </View>
-
-            {/* Basic Info */}
-            <Text
-              className="mb-3 text-[11px] font-bold uppercase text-dime-ink-4"
-              style={{ letterSpacing: 1.5 }}
-            >
-              Basic Information
-            </Text>
-            <View className="gap-4">
-              <Input
-                label="Name"
-                value={name}
-                onChangeText={(v) => {
-                  setName(v);
-                  if (nameErr) setNameErr("");
-                }}
-                error={nameErr}
-                autoCapitalize="words"
-                editable={!isOwner}
-              />
-              <Input
-                label="Phone"
-                placeholder="Optional"
-                value={phone}
-                onChangeText={setPhone}
-                keyboardType="phone-pad"
-              />
-
-              {/* Role — not editable for owners */}
-              {!isOwner && (
-                <View>
-                  <Text className="mb-2 text-[13px] font-semibold uppercase tracking-wider text-dime-ink-3">
-                    Role
-                  </Text>
-                  <ChipRow>
-                    {roleOptions.map((r) => (
-                      <Chip
-                        key={r}
-                        label={r.charAt(0).toUpperCase() + r.slice(1)}
-                        selected={role === r}
-                        onPress={() => setRole(r)}
-                      />
-                    ))}
-                  </ChipRow>
-                </View>
-              )}
-
-              {/* PIN */}
-              <Input
-                label="PIN"
-                placeholder="4-digit PIN"
-                value={pin}
-                onChangeText={(v) => {
-                  setPin(v.replace(/\D/g, "").slice(0, 4));
-                  if (pinErr) setPinErr("");
-                }}
-                keyboardType="number-pad"
-                maxLength={4}
-                error={pinErr}
-                trailing={
-                  <Pressable
-                    onPress={() => {
-                      const set = new Set(existingPins);
-                      let attempts = 0;
-                      let p = generatePin();
-                      while (set.has(p) && attempts < 100) {
-                        p = generatePin();
-                        attempts++;
-                      }
-                      setPin(p);
-                      haptic.light();
-                    }}
-                    hitSlop={8}
-                  >
-                    <Icon name="arrow.clockwise" size={16} color="#FF6B2C" />
-                  </Pressable>
-                }
-              />
-            </View>
-
-            {/* Table Assignment — only for server/host */}
-            {showTableAssignment && (
-              <View className="mt-6">
-                <Text
-                  className="mb-3 text-[11px] font-bold uppercase text-dime-ink-4"
-                  style={{ letterSpacing: 1.5 }}
-                >
-                  Assigned Tables
-                </Text>
-
-                {assignedTables.length > 0 ? (
-                  <View className="rounded-2xl bg-white p-3" style={cardShadow}>
-                    <View className="flex-row flex-wrap gap-2">
-                      {assignedTables.map((t) => (
-                        <Pressable
-                          key={t.id}
-                          onPress={() => unassignTable(t.id)}
-                          className="flex-row items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-2"
-                        >
-                          <Text className="text-[13px] font-semibold text-emerald-700">
-                            #{t.number}
-                          </Text>
-                          <Icon name="xmark" size={10} color="#059669" />
-                        </Pressable>
-                      ))}
-                    </View>
-                    <Text className="mt-2 text-[11px] text-dime-ink-4">
-                      Tap to unassign
-                    </Text>
-                  </View>
-                ) : (
-                  <View className="items-center rounded-2xl bg-white py-6" style={cardShadow}>
-                    <Icon name="tablecells" size={24} color="#BFBFBF" />
-                    <Text className="mt-2 text-[12px] text-dime-ink-3">No tables assigned</Text>
-                  </View>
-                )}
-
-                {unassignedTables.length > 0 && (
-                  <View className="mt-3">
-                    <Text className="mb-2 text-[11px] font-bold text-dime-ink-4">
-                      Available tables (tap to assign)
-                    </Text>
-                    <View className="flex-row flex-wrap gap-2">
-                      {unassignedTables.map((t) => (
-                        <Pressable
-                          key={t.id}
-                          onPress={() => assignTable(t.id)}
-                          className="flex-row items-center gap-1.5 rounded-full bg-neutral-100 px-3 py-2"
-                        >
-                          <Text className="text-[13px] font-semibold text-dime-ink-2">
-                            #{t.number}
-                          </Text>
-                          <Text className="text-[10px] text-dime-ink-4">{t.zone}</Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  </View>
-                )}
-              </View>
-            )}
-
-            {/* Permissions */}
-            <View className="mt-6">
-              <View className="mb-3 flex-row items-center justify-between">
-                <Text
-                  className="text-[11px] font-bold uppercase text-dime-ink-4"
-                  style={{ letterSpacing: 1.5 }}
-                >
-                  Permissions
-                </Text>
-                {!isOwner && rolePresets[role] && (
-                  <Pressable onPress={resetPermissionsToPreset} hitSlop={8}>
-                    <Text className="text-[12px] font-semibold text-dime-primary-500">
-                      Reset to {role} defaults
-                    </Text>
-                  </Pressable>
-                )}
-              </View>
-              <View className="gap-0.5 rounded-2xl bg-white p-1" style={cardShadow}>
-                {permissionKeys.map((k) => (
-                  <View
-                    key={k}
-                    className="flex-row items-center justify-between rounded-xl px-3 py-2.5"
-                  >
-                    <Text className="flex-1 text-[13px] text-dime-ink-2">
-                      {formatPermissionLabel(k)}
-                    </Text>
-                    <Switch
-                      value={!!permissions[k]}
-                      onValueChange={() => togglePermission(k)}
-                      trackColor={{ true: "#FF6B2C", false: "#D1D1D6" }}
-                      disabled={isOwner}
-                    />
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* Save */}
-            <View className="mt-6">
-              <Button label="Save Changes" loading={saving} onPress={save} fullWidth />
-            </View>
-
-            {/* Danger zone — not for owners */}
-            {!isOwner && (
-              <View className="mt-8">
-                <Text
-                  className="mb-3 text-[11px] font-bold uppercase text-dime-ink-4"
-                  style={{ letterSpacing: 1.5 }}
-                >
-                  Danger Zone
-                </Text>
-                <View className="gap-3 rounded-2xl border border-red-100 bg-red-50/50 p-4">
-                  <View className="flex-row items-center justify-between">
-                    <View className="flex-1">
-                      <Text className="text-[14px] font-semibold text-dime-ink">
-                        {staff.is_active ? "Deactivate" : "Activate"} Staff
-                      </Text>
-                      <Text className="text-[12px] text-dime-ink-3">
-                        {staff.is_active
-                          ? "Removes POS access. Can be reactivated later."
-                          : "Restores POS access for this staff member."}
-                      </Text>
-                    </View>
-                    <Button
-                      label={staff.is_active ? "Deactivate" : "Activate"}
-                      variant={staff.is_active ? "secondary" : "primary"}
-                      size="sm"
-                      onPress={handleDeactivate}
-                    />
-                  </View>
-                  <View className="h-px bg-red-100" />
-                  <View className="flex-row items-center justify-between">
-                    <View className="flex-1">
-                      <Text className="text-[14px] font-semibold text-dime-ink">
-                        Delete Staff
-                      </Text>
-                      <Text className="text-[12px] text-dime-ink-3">
-                        Permanently removes this member. Cannot be undone.
-                      </Text>
-                    </View>
-                    <Button
-                      label="Delete"
-                      variant="destructive"
-                      size="sm"
-                      onPress={handleDelete}
-                    />
-                  </View>
-                </View>
-              </View>
-            )}
-
-            <View className="mt-4">
-              <Button label="Done" variant="ghost" onPress={onClose} fullWidth />
-            </View>
-          </ScrollView>
-        ) : null}
-      </Sheet.Body>
-    </Sheet>
+          )}
+        </Sheet.Body>
+      </Sheet>
+    </PageScroll>
   );
 }

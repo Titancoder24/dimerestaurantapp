@@ -1,22 +1,24 @@
-import { Platform, Pressable, Text, View } from "react-native";
+import { Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { useRouter } from "expo-router";
-import { Avatar, Icon, Screen } from "@/components/ui";
+import { Avatar, Icon, Screen, haptic } from "@/components/ui";
 import { useAuth } from "@/store/auth";
-import { haptic } from "@/components/ui/haptics";
+import { T } from "@/lib/visual";
+import { display, mono } from "@/components/dime/atoms";
+import { initials } from "@/lib/format";
 
-const menuItems = [
+const preferences = [
   { title: "Food Preferences", icon: "leaf.fill", route: "/preferences" },
   { title: "Offers & Promos", icon: "gift.fill", route: "/offers" },
 ] as const;
 
-const activityItems = [
+const activity = [
   { title: "My Orders", icon: "bag.fill", route: "/orders" },
   { title: "My Bookings", icon: "calendar", route: "/bookings" },
   { title: "My Reviews", icon: "star.fill", route: "/my-reviews" },
-  { title: "Favorites", icon: "heart.fill", route: "/favorites" },
+  { title: "Favourites", icon: "heart.fill", route: "/favorites" },
 ] as const;
 
-const accountItems = [
+const account = [
   { title: "Help & Support", icon: "questionmark.circle", route: "/support" },
   { title: "Notifications", icon: "bell.fill", route: "/notifications" },
 ] as const;
@@ -27,86 +29,142 @@ export default function Profile() {
   const signOut = useAuth((s) => s.signOut);
 
   return (
-    <Screen>
-      {/* Profile header */}
-      <View className="bg-white px-4 pb-5 pt-3">
-        <Text className="text-[22px] font-bold text-[#1C1C1E]" style={{ letterSpacing: -0.5 }}>Account</Text>
-        <Pressable
-          onPress={() => { haptic.light(); router.push("/edit-profile"); }}
-          className="mt-4 flex-row items-center gap-3.5"
-        >
-          <Avatar name={profile?.name} uri={profile?.avatar_url} size={52} />
-          <View className="flex-1">
-            <Text className="text-[17px] font-bold text-[#1C1C1E]">{profile?.name ?? "Guest"}</Text>
-            <Text className="mt-0.5 text-[13px] text-[#93959F]">{profile?.email}</Text>
-          </View>
-          <View className="h-8 w-8 items-center justify-center rounded-full bg-[#F2F2F2]">
-            <Icon name="chevron.right" size={12} color="#93959F" />
-          </View>
-        </Pressable>
-      </View>
-
-      <View className="h-2 bg-[#F2F2F2]" />
-
-      <MenuSection items={menuItems} router={router} />
-      <View className="h-2 bg-[#F2F2F2]" />
-
-      <View className="bg-white">
-        <Text className="px-4 pb-1 pt-4 text-[11px] font-bold uppercase text-[#93959F]" style={{ letterSpacing: 1 }}>Activity</Text>
-      </View>
-      <MenuSection items={activityItems} router={router} />
-      <View className="h-2 bg-[#F2F2F2]" />
-
-      <View className="bg-white">
-        <Text className="px-4 pb-1 pt-4 text-[11px] font-bold uppercase text-[#93959F]" style={{ letterSpacing: 1 }}>Account</Text>
-      </View>
-      <MenuSection items={accountItems} router={router} />
-      <View className="h-2 bg-[#F2F2F2]" />
-
-      {/* Sign out */}
-      <Pressable
-        onPress={async () => {
-          haptic.light();
-          if (Platform.OS === "web") {
-            if (!window.confirm("Sign out? You can sign back in anytime.")) return;
-          }
-          await signOut();
-          router.replace("/login");
-        }}
-        className="flex-row items-center gap-3.5 bg-white px-4 py-4"
-      >
-        <View className="h-9 w-9 items-center justify-center rounded-[10px] bg-[#FFF4F4]">
-          <Icon name="arrow.right" size={15} color="#E23744" />
+    <Screen scroll={false} className="bg-[#F6F2EC]">
+      <ScrollView contentContainerStyle={{ paddingTop: 14, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+        <View style={{ paddingHorizontal: 18 }}>
+          <Text style={display(28, "600", -0.6)}>Account</Text>
         </View>
-        <Text className="text-[15px] font-medium text-[#E23744]">Sign out</Text>
-      </Pressable>
 
-      <View className="h-2 bg-[#F2F2F2]" />
+        {/* Profile card */}
+        <View style={{ paddingHorizontal: 18, paddingTop: 16 }}>
+          <Pressable
+            onPress={() => { haptic.light(); router.push("/edit-profile"); }}
+            style={{
+              backgroundColor: T.card, borderRadius: 18, padding: 14,
+              borderWidth: 1, borderColor: T.hairline,
+              flexDirection: "row", alignItems: "center", gap: 14,
+            }}
+          >
+            {profile?.avatar_url ? (
+              <Avatar uri={profile.avatar_url} size={56} />
+            ) : (
+              <View
+                style={{
+                  width: 56, height: 56, borderRadius: 999,
+                  backgroundColor: T.saffron,
+                  alignItems: "center", justifyContent: "center",
+                }}
+              >
+                <Text style={{ color: "#fff", fontWeight: "700", fontSize: 18 }}>
+                  {initials(profile?.name ?? "")}
+                </Text>
+              </View>
+            )}
+            <View style={{ flex: 1 }}>
+              <Text style={display(18, "600", -0.3)}>{profile?.name ?? "Guest"}</Text>
+              <Text style={{ marginTop: 2, fontSize: 12, color: T.muted }}>{profile?.email}</Text>
+              <View
+                style={{
+                  marginTop: 8, alignSelf: "flex-start",
+                  paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999,
+                  backgroundColor: T.cream,
+                  flexDirection: "row", alignItems: "center", gap: 5,
+                }}
+              >
+                <Icon name="sparkles" size={11} color={T.saffron} />
+                <Text style={[mono(10, "700", 1.1), { color: T.saffron, textTransform: "uppercase" }]}>
+                  DIME Member
+                </Text>
+              </View>
+            </View>
+            <Icon name="chevron.right" size={16} color={T.muted} />
+          </Pressable>
+        </View>
 
-      <View className="items-center bg-white py-6">
-        <Text className="text-[11px] text-[#93959F]">DIME v1.0 · Made in Bengaluru</Text>
-      </View>
+        <Section title="PREFERENCES" items={preferences} router={router} />
+        <Section title="ACTIVITY" items={activity} router={router} />
+        <Section title="ACCOUNT" items={account} router={router} />
+
+        {/* Sign out */}
+        <View style={{ paddingHorizontal: 18, paddingTop: 18 }}>
+          <Pressable
+            onPress={async () => {
+              haptic.light();
+              if (Platform.OS === "web") {
+                if (!window.confirm("Sign out? You can sign back in anytime.")) return;
+              }
+              await signOut();
+              router.replace("/login");
+            }}
+            style={{
+              backgroundColor: T.card, borderRadius: 16, padding: 14,
+              borderWidth: 1, borderColor: T.hairline,
+              flexDirection: "row", alignItems: "center", gap: 12,
+            }}
+          >
+            <View
+              style={{
+                width: 36, height: 36, borderRadius: 10,
+                backgroundColor: T.rubySoft,
+                alignItems: "center", justifyContent: "center",
+              }}
+            >
+              <Icon name="arrow.right" size={16} color={T.ruby} />
+            </View>
+            <Text style={{ flex: 1, fontSize: 14, fontWeight: "600", color: T.ruby }}>Sign out</Text>
+          </Pressable>
+        </View>
+
+        <View style={{ alignItems: "center", paddingTop: 26 }}>
+          <Text style={[mono(11, "600", 1.2)]}>DIME v1.0 · MADE IN BENGALURU</Text>
+        </View>
+      </ScrollView>
     </Screen>
   );
 }
 
-function MenuSection({ items, router }: { items: readonly { title: string; icon: string; route: string }[]; router: ReturnType<typeof useRouter> }) {
+function Section({
+  title,
+  items,
+  router,
+}: {
+  title: string;
+  items: readonly { title: string; icon: string; route: string }[];
+  router: ReturnType<typeof useRouter>;
+}) {
   return (
-    <View className="bg-white">
-      {items.map((item, i) => (
-        <Pressable
-          key={item.route}
-          onPress={() => { haptic.light(); router.push(item.route as never); }}
-          className="flex-row items-center gap-3.5 px-4 py-3.5"
-          style={i > 0 ? { borderTopWidth: 1, borderTopColor: "#F0F0F0" } : undefined}
-        >
-          <View className="h-9 w-9 items-center justify-center rounded-[10px] bg-[#F8F8F8]">
-            <Icon name={item.icon} size={15} color="#535665" />
-          </View>
-          <Text className="flex-1 text-[15px] font-medium text-[#1C1C1E]">{item.title}</Text>
-          <Icon name="chevron.right" size={12} color="#D4D4D8" />
-        </Pressable>
-      ))}
+    <View style={{ paddingHorizontal: 18, paddingTop: 22 }}>
+      <Text style={[mono(11, "700", 1.4), { marginBottom: 10 }]}>{title}</Text>
+      <View
+        style={{
+          backgroundColor: T.card, borderRadius: 18,
+          borderWidth: 1, borderColor: T.hairline, overflow: "hidden",
+        }}
+      >
+        {items.map((item, i) => (
+          <Pressable
+            key={item.route}
+            onPress={() => { haptic.light(); router.push(item.route as never); }}
+            style={{
+              flexDirection: "row", alignItems: "center", gap: 12,
+              paddingHorizontal: 14, paddingVertical: 14,
+              borderTopWidth: i > 0 ? 1 : 0, borderTopColor: T.hairline,
+            }}
+          >
+            <View
+              style={{
+                width: 32, height: 32, borderRadius: 10,
+                backgroundColor: T.cream,
+                alignItems: "center", justifyContent: "center",
+              }}
+            >
+              <Icon name={item.icon} size={15} color={T.ink} />
+            </View>
+            <Text style={{ flex: 1, fontSize: 14, fontWeight: "600", color: T.ink }}>{item.title}</Text>
+            <Icon name="chevron.right" size={14} color={T.muted} />
+          </Pressable>
+        ))}
+      </View>
     </View>
   );
 }

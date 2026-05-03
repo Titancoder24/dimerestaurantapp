@@ -1,34 +1,40 @@
 import { useMemo } from "react";
-import { ScrollView, Text, View } from "react-native";
-import { Badge, Card, Icon } from "@/components/ui";
+import { Pressable, ScrollView, Text, View } from "react-native";
+import { useRouter } from "expo-router";
+import { Icon } from "@/components/ui";
 import { useOwnedRestaurant, useRestaurantOrders, useRestaurantBookings, useInventory } from "@/hooks/owner";
 import { rupees, timeAgo } from "@/lib/format";
 import dayjs from "dayjs";
 
-const kpiConfig = [
-  { icon: "bag.fill", bg: "#FFF7ED", color: "#EA580C" },
-  { icon: "chart.line.uptrend.xyaxis", bg: "#F0FDF4", color: "#16A34A" },
-  { icon: "clock.fill", bg: "#FEF3C7", color: "#D97706" },
-  { icon: "calendar", bg: "#EFF6FF", color: "#2563EB" },
-];
+const PAGE_BG = "#FAFAFA";
+const CARD_BG = "#FFFFFF";
+const HAIRLINE = "#ECECEC";
+const INK = "#0E0E0C";
+const INK2 = "#3F3D38";
+const MUTED = "#8B8780";
+const ACCENT = "#6F5BFF";
+
+const MONO = '"IBM Plex Mono", ui-monospace, monospace';
+const DISP = '"Fraunces", Georgia, serif';
 
 export default function OwnerDashboard() {
+  const router = useRouter();
   const { data: restaurant } = useOwnedRestaurant();
   const { data: orders } = useRestaurantOrders(restaurant?.id);
   const { data: bookings } = useRestaurantBookings(restaurant?.id);
   const { data: inventory } = useInventory(restaurant?.id);
 
-  const todayOrders = useMemo(
+  const today = useMemo(
     () => (orders ?? []).filter((o) => dayjs(o.created_at).isSame(dayjs(), "day")),
     [orders]
   );
-  const ysdayOrders = useMemo(
+  const yesterday = useMemo(
     () => (orders ?? []).filter((o) => dayjs(o.created_at).isSame(dayjs().subtract(1, "day"), "day")),
     [orders]
   );
 
-  const todayRevenue = todayOrders.reduce((s, o) => s + Number(o.total_amount), 0);
-  const ysdayRevenue = ysdayOrders.reduce((s, o) => s + Number(o.total_amount), 0);
+  const todayRevenue = today.reduce((s, o) => s + Number(o.total_amount), 0);
+  const ysdayRevenue = yesterday.reduce((s, o) => s + Number(o.total_amount), 0);
   const revDelta = ysdayRevenue === 0 ? 100 : Math.round(((todayRevenue - ysdayRevenue) / ysdayRevenue) * 100);
 
   const pending = (orders ?? []).filter((o) => o.status === "received" || o.status === "preparing");
@@ -36,134 +42,313 @@ export default function OwnerDashboard() {
   const todayBookings = (bookings ?? []).filter((b) => dayjs(b.date).isSame(dayjs(), "day"));
 
   const kpis = [
-    { label: "Orders today", value: String(todayOrders.length), delta: todayOrders.length - ysdayOrders.length },
-    { label: "Revenue today", value: rupees(todayRevenue), delta: revDelta, suffix: "%" },
-    { label: "Pending", value: String(pending.length) },
+    { label: "Revenue today", value: rupees(todayRevenue), delta: revDelta, suffix: "%", positive: revDelta >= 0 },
+    { label: "Orders", value: String(today.length), delta: today.length - yesterday.length, positive: today.length >= yesterday.length },
+    { label: "In kitchen", value: String(pending.length) },
     { label: "Bookings", value: String(bookings?.length ?? 0) },
   ];
 
   return (
-    <ScrollView className="flex-1 bg-neutral-50" contentContainerStyle={{ padding: 24, gap: 20 }}>
-      {/* Welcome */}
-      <View>
-        <Text className="text-[12px] font-medium text-dime-ink-3">Welcome back</Text>
-        <Text className="text-[26px] font-bold text-dime-ink" style={{ letterSpacing: -0.8 }}>{restaurant?.name}</Text>
+    <ScrollView style={{ flex: 1, backgroundColor: PAGE_BG }} contentContainerStyle={{ padding: 32, gap: 24, maxWidth: 1100 }}>
+      {/* Header */}
+      <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" }}>
+        <View>
+          <Text style={{ fontSize: 11, fontWeight: "600", color: MUTED, letterSpacing: 0.2, fontFamily: MONO }}>
+            {dayjs().format("dddd · DD MMM")}
+          </Text>
+          <Text style={{ marginTop: 4, fontSize: 28, fontWeight: "700", color: INK, letterSpacing: -0.8, fontFamily: DISP }}>
+            {restaurant?.name ?? "Workspace"}
+          </Text>
+        </View>
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <Pressable
+            onPress={() => router.push("/owner/orders" as never)}
+            style={{
+              height: 32, paddingHorizontal: 12, borderRadius: 7,
+              backgroundColor: "#fff", borderWidth: 1, borderColor: HAIRLINE,
+              flexDirection: "row", alignItems: "center", gap: 6,
+            }}
+          >
+            <Icon name="bag.fill" size={12} color={INK} />
+            <Text style={{ fontSize: 12, fontWeight: "600", color: INK, letterSpacing: -0.1 }}>Orders</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => router.push("/owner/dineout" as never)}
+            style={{
+              height: 32, paddingHorizontal: 12, borderRadius: 7,
+              backgroundColor: INK,
+              flexDirection: "row", alignItems: "center", gap: 6,
+            }}
+          >
+            <Icon name="sparkles" size={12} color="#fff" />
+            <Text style={{ fontSize: 12, fontWeight: "600", color: "#fff", letterSpacing: -0.1 }}>Edit content</Text>
+          </Pressable>
+        </View>
       </View>
 
-      {/* Status banners */}
+      {/* Status banner */}
       {restaurant?.status === "pending" ? (
-        <View className="flex-row items-center gap-4 rounded-2xl bg-amber-50 p-5" style={{ borderWidth: 1, borderColor: "#FCD34D" }}>
-          <View className="h-10 w-10 items-center justify-center rounded-xl bg-amber-500">
-            <Icon name="clock.fill" size={18} color="#fff" />
-          </View>
-          <View className="flex-1">
-            <Text className="text-[14px] font-bold text-amber-900">Awaiting approval</Text>
-            <Text className="mt-0.5 text-[12px] leading-[18px] text-amber-800">Our team is reviewing your application. While you wait, you can build your menu, add tables, and upload photos.</Text>
-          </View>
-        </View>
-      ) : restaurant?.status === "suspended" || restaurant?.status === "banned" ? (
-        <View className="flex-row items-center gap-4 rounded-2xl bg-red-50 p-5" style={{ borderWidth: 1, borderColor: "#FCA5A5" }}>
-          <View className="h-10 w-10 items-center justify-center rounded-xl bg-red-500">
-            <Icon name="exclamationmark.triangle.fill" size={18} color="#fff" />
-          </View>
-          <View className="flex-1">
-            <Text className="text-[14px] font-bold text-red-900">Listing {restaurant.status}</Text>
-            <Text className="mt-0.5 text-[12px] text-red-800">Contact support@dime.app to resolve.</Text>
+        <View
+          style={{
+            flexDirection: "row", alignItems: "center", gap: 12,
+            backgroundColor: "#FFFBEB", borderRadius: 10, padding: 14,
+            borderWidth: 1, borderColor: "#FCE3A3",
+          }}
+        >
+          <View
+            style={{
+              width: 8, height: 8, borderRadius: 4, backgroundColor: "#D97706",
+            }}
+          />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 13, fontWeight: "600", color: "#7A4F00", letterSpacing: -0.1 }}>
+              Pending verification
+            </Text>
+            <Text style={{ marginTop: 2, fontSize: 12, color: "#8E5F08" }}>
+              You can build your menu and add tables while we review your application.
+            </Text>
           </View>
         </View>
       ) : null}
 
-      {/* KPI cards */}
-      <View className="flex-row flex-wrap gap-4">
-        {kpis.map((k, idx) => {
-          const c = kpiConfig[idx]!;
-          return (
-            <View
-              key={k.label}
-              className="min-w-[160px] flex-1 rounded-2xl bg-white p-5"
-              style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 12, elevation: 2, borderWidth: 1, borderColor: "rgba(0,0,0,0.04)" }}
+      {/* KPI row — Linear/Stripe style monochrome with monospaced numerals */}
+      <View
+        style={{
+          backgroundColor: CARD_BG, borderRadius: 12,
+          borderWidth: 1, borderColor: HAIRLINE, overflow: "hidden",
+          flexDirection: "row",
+        }}
+      >
+        {kpis.map((k, idx) => (
+          <View
+            key={k.label}
+            style={{
+              flex: 1, padding: 18,
+              borderLeftWidth: idx > 0 ? 1 : 0, borderLeftColor: HAIRLINE,
+            }}
+          >
+            <Text style={{ fontSize: 11, fontWeight: "500", color: MUTED, letterSpacing: 0.2 }}>
+              {k.label}
+            </Text>
+            <Text
+              style={{
+                marginTop: 8,
+                fontSize: 26, fontWeight: "700", color: INK,
+                letterSpacing: -0.8, fontFamily: MONO,
+              }}
             >
-              <View className="mb-3 flex-row items-center gap-2.5">
-                <View className="h-8 w-8 items-center justify-center rounded-xl" style={{ backgroundColor: c.bg }}>
-                  <Icon name={c.icon} size={15} color={c.color} />
+              {k.value}
+            </Text>
+            {k.delta !== undefined ? (
+              <View style={{ marginTop: 6, flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <View
+                  style={{
+                    paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4,
+                    backgroundColor: k.positive ? "#E6F4ED" : "#FCEAE6",
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 10, fontWeight: "700",
+                      color: k.positive ? "#0F8A4F" : "#D43A2F",
+                      fontFamily: MONO,
+                    }}
+                  >
+                    {k.positive ? "↑" : "↓"} {Math.abs(k.delta)}{k.suffix ?? ""}
+                  </Text>
                 </View>
-                <Text className="text-[12px] font-semibold text-dime-ink-3">{k.label}</Text>
+                <Text style={{ fontSize: 11, color: MUTED }}>vs yesterday</Text>
               </View>
-              <Text className="text-[24px] font-bold text-dime-ink" style={{ letterSpacing: -0.5 }}>{k.value}</Text>
-              {k.delta !== undefined ? (
-                <Text className={`mt-1 text-[12px] font-medium ${k.delta >= 0 ? "text-emerald-600" : "text-red-500"}`}>
-                  {k.delta >= 0 ? "↑" : "↓"} {Math.abs(k.delta)}{k.suffix ?? ""} vs yesterday
-                </Text>
-              ) : null}
-            </View>
-          );
-        })}
+            ) : null}
+          </View>
+        ))}
       </View>
 
-      {/* Pending orders */}
-      <Card>
-        <Card.Header title="Pending Orders" subtitle={`${pending.length} active`} />
-        <Card.Body className="gap-2">
+      {/* Two column layout */}
+      <View style={{ flexDirection: "row", gap: 20, flexWrap: "wrap" }}>
+        {/* Pending orders */}
+        <SectionCard
+          title="Live orders"
+          subtitle={`${pending.length} in kitchen`}
+          actionLabel="View all"
+          onAction={() => router.push("/owner/kitchen" as never)}
+        >
           {pending.slice(0, 5).map((o) => (
-            <View key={o.id} className="flex-row items-center justify-between rounded-xl bg-neutral-50 p-4">
-              <View className="flex-row items-center gap-3">
-                <View className="h-9 w-9 items-center justify-center rounded-lg bg-dime-primary-50">
-                  <Icon name="bag.fill" size={14} color="#EA580C" />
-                </View>
-                <View>
-                  <Text className="text-[14px] font-semibold text-dime-ink">{o.order_number}</Text>
-                  <Text className="text-[11px] text-dime-ink-4">{timeAgo(o.created_at)} · {rupees(o.total_amount)}</Text>
-                </View>
-              </View>
-              <Badge tone={o.status === "received" ? "orange" : "blue"} label={o.status} />
-            </View>
+            <Row
+              key={o.id}
+              icon="bag.fill"
+              iconBg="#FFF7ED"
+              iconColor="#EA580C"
+              title={o.order_number}
+              meta={`${timeAgo(o.created_at)} · ${rupees(o.total_amount)}`}
+              status={o.status}
+              statusColor={o.status === "received" ? "#D97706" : "#3358D4"}
+            />
           ))}
-          {pending.length === 0 ? <Text className="py-6 text-center text-[13px] text-dime-ink-4">Kitchen is clear — great!</Text> : null}
-        </Card.Body>
-      </Card>
+          {pending.length === 0 ? <EmptyRow text="Kitchen is clear." /> : null}
+        </SectionCard>
+
+        {/* Today's bookings */}
+        <SectionCard
+          title="Today's bookings"
+          subtitle={`${todayBookings.length} arrivals`}
+          actionLabel="Manage"
+          onAction={() => router.push("/owner/bookings" as never)}
+        >
+          {todayBookings.slice(0, 5).map((b) => (
+            <Row
+              key={b.id}
+              icon="calendar"
+              iconBg="#EEEAF6"
+              iconColor={ACCENT}
+              title={b.users?.name ?? "Walk-in"}
+              meta={`${b.time} · ${b.guests} guests · ${b.seating_preference}`}
+              status={b.status}
+              statusColor={b.status === "confirmed" ? "#0F8A4F" : "#D97706"}
+            />
+          ))}
+          {todayBookings.length === 0 ? <EmptyRow text="No bookings today." /> : null}
+        </SectionCard>
+      </View>
 
       {/* Low stock */}
-      <Card>
-        <Card.Header title="Low Stock Alerts" subtitle={`${lowStock.length} items`} />
-        <Card.Body className="gap-2">
-          {lowStock.slice(0, 5).map((i) => (
-            <View key={i.id} className="flex-row items-center justify-between rounded-xl bg-neutral-50 p-4">
-              <View className="flex-row items-center gap-3">
-                <View className="h-9 w-9 items-center justify-center rounded-lg" style={{ backgroundColor: i.quantity <= 0 ? "#FEF2F2" : "#FFFBEB" }}>
-                  <Icon name="exclamationmark.triangle.fill" size={14} color={i.quantity <= 0 ? "#EF4444" : "#F59E0B"} />
-                </View>
-                <Text className="text-[14px] font-semibold text-dime-ink">{i.name}</Text>
-              </View>
-              <View className="rounded-full bg-neutral-100 px-2.5 py-1">
-                <Text className="text-[12px] font-semibold text-dime-ink-2">{i.quantity} {i.unit}</Text>
-              </View>
-            </View>
-          ))}
-          {lowStock.length === 0 ? <Text className="py-6 text-center text-[13px] text-dime-ink-4">All stocked up.</Text> : null}
-        </Card.Body>
-      </Card>
+      <SectionCard
+        title="Inventory alerts"
+        subtitle={`${lowStock.length} ${lowStock.length === 1 ? "item" : "items"} low`}
+        actionLabel="Open inventory"
+        onAction={() => router.push("/owner/inventory" as never)}
+      >
+        {lowStock.slice(0, 5).map((i) => (
+          <Row
+            key={i.id}
+            icon="exclamationmark.triangle.fill"
+            iconBg={i.quantity <= 0 ? "#FCEAE6" : "#FFFBEB"}
+            iconColor={i.quantity <= 0 ? "#D43A2F" : "#D97706"}
+            title={i.name}
+            meta={`${i.quantity} ${i.unit} · threshold ${i.min_threshold} ${i.unit}`}
+          />
+        ))}
+        {lowStock.length === 0 ? <EmptyRow text="All stocked up." /> : null}
+      </SectionCard>
 
-      {/* Today's bookings */}
-      <Card>
-        <Card.Header title="Today's Bookings" subtitle={`${todayBookings.length} arrivals`} />
-        <Card.Body className="gap-2">
-          {todayBookings.slice(0, 5).map((b) => (
-            <View key={b.id} className="flex-row items-center justify-between rounded-xl bg-neutral-50 p-4">
-              <View className="flex-row items-center gap-3">
-                <View className="h-9 w-9 items-center justify-center rounded-lg bg-blue-50">
-                  <Icon name="calendar" size={14} color="#2563EB" />
-                </View>
-                <View>
-                  <Text className="text-[14px] font-semibold text-dime-ink">{b.users?.name ?? "Walk-in"}</Text>
-                  <Text className="text-[11px] text-dime-ink-4">{b.time} · {b.guests} guests · {b.seating_preference}</Text>
-                </View>
-              </View>
-              <Badge tone={b.status === "confirmed" ? "green" : "orange"} label={b.status} />
-            </View>
-          ))}
-          {todayBookings.length === 0 ? <Text className="py-6 text-center text-[13px] text-dime-ink-4">No bookings today.</Text> : null}
-        </Card.Body>
-      </Card>
+      {/* Footer marker */}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingTop: 8 }}>
+        <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: "#0F8A4F" }} />
+        <Text style={{ fontSize: 11, color: MUTED, fontFamily: MONO }}>
+          Live · syncing with Supabase
+        </Text>
+      </View>
     </ScrollView>
+  );
+}
+
+function SectionCard({
+  title,
+  subtitle,
+  actionLabel,
+  onAction,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  actionLabel?: string;
+  onAction?: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <View
+      style={{
+        flex: 1, minWidth: 320,
+        backgroundColor: CARD_BG, borderRadius: 12,
+        borderWidth: 1, borderColor: HAIRLINE,
+      }}
+    >
+      <View
+        style={{
+          paddingHorizontal: 18, paddingVertical: 14,
+          borderBottomWidth: 1, borderBottomColor: HAIRLINE,
+          flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+        }}
+      >
+        <View>
+          <Text style={{ fontSize: 14, fontWeight: "600", color: INK, letterSpacing: -0.2 }}>
+            {title}
+          </Text>
+          <Text style={{ marginTop: 2, fontSize: 11, color: MUTED, letterSpacing: 0.1 }}>
+            {subtitle}
+          </Text>
+        </View>
+        {actionLabel ? (
+          <Pressable onPress={onAction} style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+            <Text style={{ fontSize: 12, fontWeight: "600", color: ACCENT, letterSpacing: -0.1 }}>
+              {actionLabel}
+            </Text>
+            <Icon name="arrow.right" size={11} color={ACCENT} />
+          </Pressable>
+        ) : null}
+      </View>
+      <View style={{ padding: 8, gap: 2 }}>{children}</View>
+    </View>
+  );
+}
+
+function Row({
+  icon,
+  iconBg,
+  iconColor,
+  title,
+  meta,
+  status,
+  statusColor,
+}: {
+  icon: string;
+  iconBg: string;
+  iconColor: string;
+  title: string;
+  meta: string;
+  status?: string;
+  statusColor?: string;
+}) {
+  return (
+    <View
+      style={{
+        flexDirection: "row", alignItems: "center", gap: 12,
+        paddingHorizontal: 10, paddingVertical: 10, borderRadius: 8,
+      }}
+    >
+      <View
+        style={{
+          width: 32, height: 32, borderRadius: 8,
+          backgroundColor: iconBg,
+          alignItems: "center", justifyContent: "center",
+        }}
+      >
+        <Icon name={icon} size={14} color={iconColor} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 13, fontWeight: "600", color: INK, letterSpacing: -0.1 }}>
+          {title}
+        </Text>
+        <Text style={{ marginTop: 1, fontSize: 11.5, color: MUTED, fontFamily: MONO }}>
+          {meta}
+        </Text>
+      </View>
+      {status ? (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+          <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: statusColor ?? MUTED }} />
+          <Text style={{ fontSize: 11, fontWeight: "600", color: INK2, textTransform: "capitalize", letterSpacing: -0.05 }}>
+            {status.replace("_", " ")}
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function EmptyRow({ text }: { text: string }) {
+  return (
+    <View style={{ paddingVertical: 24, alignItems: "center" }}>
+      <Text style={{ fontSize: 12, color: MUTED, letterSpacing: -0.05 }}>{text}</Text>
+    </View>
   );
 }

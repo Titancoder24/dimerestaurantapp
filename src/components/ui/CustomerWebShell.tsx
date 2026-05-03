@@ -32,7 +32,7 @@ export function CustomerWebShell({ children }: { children: React.ReactNode }) {
   if (!isWebDesktop || !isCustomerRoute) return <>{children}</>;
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#F2F2F2" }}>
+    <View style={{ flex: 1, backgroundColor: "#F6F2EC" }}>
       {/* Nav bar */}
       <View
         className="flex-row items-center bg-white px-8 py-2.5"
@@ -43,10 +43,10 @@ export function CustomerWebShell({ children }: { children: React.ReactNode }) {
           onPress={() => { haptic.light(); router.push("/home"); }}
           className="mr-10 flex-row items-center gap-2.5"
         >
-          <View className="h-8 w-8 items-center justify-center rounded-[10px]" style={{ backgroundColor: "#FC8019" }}>
+          <View className="h-8 w-8 items-center justify-center rounded-[10px]" style={{ backgroundColor: "#FF5A1F" }}>
             <Text className="text-[16px] font-bold text-white" style={{ letterSpacing: -0.5 }}>D</Text>
           </View>
-          <Text className="text-[18px] font-bold text-[#1C1C1E]" style={{ letterSpacing: -0.5 }}>
+          <Text className="text-[20px] font-bold text-[#0E0E0C]" style={{ letterSpacing: -0.5, fontFamily: '"Fraunces", Georgia, serif' }}>
             DIME
           </Text>
         </Pressable>
@@ -61,12 +61,12 @@ export function CustomerWebShell({ children }: { children: React.ReactNode }) {
                   key={t.href}
                   onPress={() => { haptic.light(); router.push(t.href as never); }}
                   className="rounded-full px-4 py-2"
-                  style={active ? { backgroundColor: "#FFF4F4" } : undefined}
+                  style={active ? { backgroundColor: "#FAF6EE" } : undefined}
                 >
                   <Text
                     className={cn(
                       "text-[14px]",
-                      active ? "font-bold text-[#E23744]" : "font-medium text-[#535665]"
+                      active ? "font-bold text-[#0E0E0C]" : "font-medium text-[#3F3D38]"
                     )}
                   >
                     {t.label}

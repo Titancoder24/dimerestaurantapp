@@ -1,24 +1,31 @@
 import { useEffect, useState } from "react";
-import { FlatList, Pressable, Switch, Text, View } from "react-native";
+import { Pressable, Switch, Text, View } from "react-native";
 import { confirm } from "@/lib/confirm";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Avatar, Badge, Button, Chip, ChipRow, Icon, Input, Screen, Sheet, haptic } from "@/components/ui";
+import { Avatar, Button, Chip, ChipRow, Icon, Input, Sheet, haptic } from "@/components/ui";
 import { supabase, type Tables } from "@/lib/supabase";
 import { useToast } from "@/store/toast";
 import { timeAgo } from "@/lib/format";
+import {
+  PageScroll, PageHeader, CardShell, CardHeader, MonoText, EmptyState, Pill,
+  ADMIN_INK, ADMIN_INK2, ADMIN_INK3, ADMIN_HAIRLINE,
+  ADMIN_HOVER, ADMIN_ACCENT, ADMIN_MONO,
+} from "@/components/admin/shell";
 
 type AdminRole = "super" | "support" | "marketing" | "sales" | "ops" | "finance" | "engineering" | "intern";
 type TeamMember = Tables<"users"> & { admin_role: AdminRole | null };
 
-const roleMeta: Record<AdminRole, { label: string; tone: "gold" | "blue" | "green" | "orange" | "gray"; description: string }> = {
-  super:      { label: "Super",       tone: "gold",   description: "Full access, can invite team" },
-  support:    { label: "Support",     tone: "blue",   description: "Tickets, complaints, customer help" },
-  marketing:  { label: "Marketing",   tone: "orange", description: "Campaigns, banners, collections" },
-  sales:      { label: "Sales",       tone: "green",  description: "Restaurant onboarding pipeline" },
-  ops:        { label: "Operations",  tone: "blue",   description: "Live ops, mission control, performance" },
-  finance:    { label: "Finance",     tone: "green",  description: "Revenue, refunds, payouts" },
-  engineering:{ label: "Engineering", tone: "gray",   description: "Feature flags, audit log, system" },
-  intern:     { label: "Intern",      tone: "gray",   description: "Read-only across most surfaces" },
+type PillTone = "neutral" | "saffron" | "lilac" | "green" | "red" | "amber";
+
+const roleMeta: Record<AdminRole, { label: string; tone: PillTone; description: string }> = {
+  super:      { label: "Super",       tone: "amber",   description: "Full access, can invite team" },
+  support:    { label: "Support",     tone: "lilac",   description: "Tickets, complaints, customer help" },
+  marketing:  { label: "Marketing",   tone: "saffron", description: "Campaigns, banners, collections" },
+  sales:      { label: "Sales",       tone: "green",   description: "Restaurant onboarding pipeline" },
+  ops:        { label: "Operations",  tone: "lilac",   description: "Live ops, mission control, performance" },
+  finance:    { label: "Finance",     tone: "green",   description: "Revenue, refunds, payouts" },
+  engineering:{ label: "Engineering", tone: "neutral", description: "Feature flags, audit log, system" },
+  intern:     { label: "Intern",      tone: "neutral", description: "Read-only across most surfaces" },
 };
 
 const allPermissions = [
@@ -65,62 +72,71 @@ export default function AdminTeam() {
   });
 
   return (
-    <Screen scroll={false} className="bg-neutral-50">
-      <View className="bg-white px-6 pb-4 pt-5" style={{ borderBottomWidth: 1, borderBottomColor: "rgba(0,0,0,0.04)" }}>
-        <View className="flex-row items-center justify-between">
-          <View>
-            <Text className="text-[11px] font-bold uppercase text-dime-ink-4" style={{ letterSpacing: 1.2 }}>Settings</Text>
-            <View className="flex-row items-baseline gap-2">
-              <Text className="text-[24px] font-bold text-dime-ink" style={{ letterSpacing: -0.5 }}>Team & Roles</Text>
-              <Text className="text-[13px] text-dime-ink-4">{team?.length ?? 0} members</Text>
-            </View>
-          </View>
-          <Pressable onPress={() => setInviting(true)} className="rounded-full bg-dime-ink px-4 py-2">
-            <Text className="text-[12px] font-bold text-white">+ Invite</Text>
-          </Pressable>
-        </View>
-      </View>
+    <PageScroll>
+      <PageHeader
+        eyebrow="DIME ADMIN · PLATFORM · PEOPLE"
+        title="Team & roles"
+        subtitle={`${team?.length ?? 0} members across ${Object.keys(counts).length} departments`}
+        rightAction="Invite"
+        actionIcon="plus"
+        onAction={() => setInviting(true)}
+      />
 
-      <View className="mx-5 mt-4 rounded-2xl bg-white p-4" style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 12, elevation: 2, borderWidth: 1, borderColor: "rgba(0,0,0,0.04)" }}>
-        <Text className="text-[11px] font-bold uppercase text-dime-ink-4" style={{ letterSpacing: 1.5 }}>Departments</Text>
-        <View className="mt-2 flex-row flex-wrap gap-2">
+      <CardShell padded>
+        <Text style={{ fontSize: 11, fontWeight: "700", color: ADMIN_INK3, letterSpacing: 1.2, fontFamily: ADMIN_MONO }}>
+          DEPARTMENTS
+        </Text>
+        <View style={{ marginTop: 10, flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
           {Object.entries(roleMeta).map(([k, m]) => (
-            <View key={k} className="rounded-full bg-dime-bg-2 px-3 py-1.5">
-              <Text className="text-[11px] font-bold text-dime-ink-2">{m.label} <Text className="text-dime-primary-600">{counts[k] ?? 0}</Text></Text>
-            </View>
+            <Pill key={k} tone={m.tone}>
+              {m.label} · {counts[k] ?? 0}
+            </Pill>
           ))}
         </View>
-      </View>
+      </CardShell>
 
-      <FlatList
-        data={team ?? []}
-        keyExtractor={(m) => m.id}
-        contentContainerStyle={{ padding: 20, gap: 10, paddingBottom: 120 }}
-        renderItem={({ item }) => {
+      <CardShell>
+        <CardHeader title="Members" subtitle={`${team?.length ?? 0} active super-admins`} />
+        {(team ?? []).length === 0 ? (
+          <EmptyState
+            icon="person.fill"
+            title="No team yet"
+            body="Tap Invite to bring on the first admin teammate."
+            actionLabel="Invite first member"
+            onAction={() => setInviting(true)}
+            compact
+          />
+        ) : null}
+        {(team ?? []).map((item, i) => {
           const meta = item.admin_role ? roleMeta[item.admin_role] : null;
           return (
-            <Pressable onPress={() => setEditing(item)} className="flex-row items-center gap-4 rounded-2xl bg-white p-4" style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 12, elevation: 2, borderWidth: 1, borderColor: "rgba(0,0,0,0.04)" }}>
-              <Avatar name={item.name ?? item.email} size={40} />
-              <View className="flex-1">
-                <Text className="text-[14px] font-bold text-dime-ink">{item.name ?? "—"}</Text>
-                <Text className="text-[11px] text-dime-ink-3">{item.email} · joined {timeAgo(item.created_at)}</Text>
-                <View className="mt-1.5 flex-row gap-1.5">
-                  {meta ? <Badge tone={meta.tone} label={meta.label} /> : <Badge tone="gray" label="No role" />}
-                  <Badge tone={item.is_active ? "green" : "red"} label={item.is_active ? "Active" : "Suspended"} />
+            <Pressable
+              key={item.id}
+              onPress={() => setEditing(item)}
+              style={({ hovered }: any) => ({
+                flexDirection: "row", alignItems: "center", gap: 14,
+                paddingHorizontal: 18, paddingVertical: 14,
+                borderTopWidth: i ? 1 : 0, borderTopColor: ADMIN_HAIRLINE,
+                backgroundColor: hovered ? ADMIN_HOVER : "transparent",
+              })}
+            >
+              <Avatar name={item.name ?? item.email} uri={item.avatar_url} size={40} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text numberOfLines={1} style={{ fontSize: 13.5, fontWeight: "700", color: ADMIN_INK }}>{item.name ?? "Unnamed"}</Text>
+                <Text numberOfLines={1} style={{ marginTop: 2, fontSize: 12, color: ADMIN_INK2 }}>{item.email}</Text>
+                <View style={{ marginTop: 5, flexDirection: "row", gap: 6 }}>
+                  {meta ? <Pill tone={meta.tone}>{meta.label}</Pill> : <Pill>No role</Pill>}
+                  <Pill tone={item.is_active ? "green" : "red"}>{item.is_active ? "Active" : "Suspended"}</Pill>
                 </View>
               </View>
-              <Icon name="chevron.right" size={14} color="#BFBFBF" />
+              <View style={{ alignItems: "flex-end" }}>
+                <MonoText size={10.5} color={ADMIN_INK3}>JOINED {timeAgo(item.created_at).toUpperCase()}</MonoText>
+              </View>
+              <Icon name="chevron.right" size={13} color={ADMIN_INK3} />
             </Pressable>
           );
-        }}
-        ListEmptyComponent={
-          <View className="items-center py-16">
-            <Icon name="person.fill" size={28} color="#BFBFBF" />
-            <Text className="mt-3 text-[15px] font-bold text-dime-ink" style={{ letterSpacing: -0.5 }}>No team yet</Text>
-            <Text className="mt-1 text-[13px] text-dime-ink-3">Tap Invite to add your first member.</Text>
-          </View>
-        }
-      />
+        })}
+      </CardShell>
 
       <InviteSheet
         visible={inviting}
@@ -133,7 +149,7 @@ export default function AdminTeam() {
         onClose={() => setEditing(null)}
         onSaved={() => { setEditing(null); qc.invalidateQueries({ queryKey: ["admin-team"] }); }}
       />
-    </Screen>
+    </PageScroll>
   );
 }
 
@@ -198,7 +214,7 @@ function InviteSheet({ visible, onClose, onInvited }: { visible: boolean; onClos
                     className={`flex-row items-center gap-4 rounded-xl p-4 ${selected ? "bg-dime-primary-50" : "bg-white"}`}
                     style={selected ? undefined : { shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 }}
                   >
-                    <Badge tone={m.tone} label={m.label} />
+                    <Pill tone={m.tone}>{m.label}</Pill>
                     <Text className="flex-1 text-[12px] text-dime-ink-2">{m.description}</Text>
                     {selected ? <Icon name="checkmark.circle.fill" size={16} color="#FF6B2C" /> : null}
                   </Pressable>

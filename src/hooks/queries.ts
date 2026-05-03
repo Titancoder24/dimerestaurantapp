@@ -219,6 +219,8 @@ export type DineoutRestaurant = Tables<"restaurants"> & {
   bank_offer_label?: string | null;
   cashback_pct?: number | null;
   gallery_urls?: string[] | null;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
 };
 
 export type DineoutFilters = {

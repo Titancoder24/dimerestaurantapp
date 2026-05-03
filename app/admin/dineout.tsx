@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { Image, Pressable, ScrollView, Text, View } from "react-native";
-import { Badge, Button, Chip, Icon, Input, Screen, Sheet, haptic } from "@/components/ui";
+import { Image, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Button, Chip, Icon, Input, Sheet, haptic } from "@/components/ui";
 import { useAdminRestaurants } from "@/hooks/admin";
 import { useAuth } from "@/store/auth";
 import { useToast } from "@/store/toast";
@@ -8,6 +8,12 @@ import { supabase, type Tables } from "@/lib/supabase";
 import { useQueryClient } from "@tanstack/react-query";
 import { pickAndUpload, pickMultipleAndUpload } from "@/lib/upload";
 import { surface } from "@/lib/visual";
+import {
+  PageScroll, PageHeader, CardShell, CardHeader, MonoText, EmptyState, Pill,
+  StatRow, StatTile,
+  ADMIN_INK, ADMIN_INK2, ADMIN_INK3, ADMIN_HAIRLINE, ADMIN_HAIRLINE2,
+  ADMIN_PANEL, ADMIN_PANEL2, ADMIN_HOVER, ADMIN_ACCENT, ADMIN_GREEN, ADMIN_AMBER,
+} from "@/components/admin/shell";
 
 type RestaurantRow = Tables<"restaurants"> & {
   cost_for_two?: number | null;
@@ -37,73 +43,92 @@ export default function AdminDineout() {
 
   if (!isAdmin) {
     return (
-      <Screen>
-        <View style={{ padding: 32, alignItems: "center" }}>
-          <Icon name="lock.fill" size={28} color={surface.ink3} />
-          <Text style={{ marginTop: 12, fontSize: 16, fontWeight: "700", color: surface.ink }}>Admin only</Text>
-          <Text style={{ marginTop: 4, fontSize: 13, color: surface.ink3 }}>Sign in as an admin or restaurant owner.</Text>
-        </View>
-      </Screen>
+      <PageScroll>
+        <CardShell padded>
+          <View style={{ alignItems: "center", paddingVertical: 24 }}>
+            <Icon name="lock.fill" size={28} color={ADMIN_INK3} />
+            <Text style={{ marginTop: 12, fontSize: 16, fontWeight: "700", color: ADMIN_INK }}>Admin only</Text>
+            <Text style={{ marginTop: 4, fontSize: 13, color: ADMIN_INK3 }}>Sign in as an admin or restaurant owner.</Text>
+          </View>
+        </CardShell>
+      </PageScroll>
     );
   }
 
-  return (
-    <Screen scroll={false} className="bg-neutral-50">
-      <View
-        className="bg-white px-6 pb-4 pt-5"
-        style={{ borderBottomWidth: 1, borderBottomColor: surface.hairline }}
-      >
-        <Text className="text-[11px] font-bold uppercase text-dime-ink-3" style={{ letterSpacing: 1.2 }}>Dineout</Text>
-        <Text className="text-[24px] font-bold text-dime-ink" style={{ letterSpacing: -0.5 }}>Restaurants — Dineout content</Text>
-        <Text className="mt-0.5 text-[13px] text-dime-ink-3">Upload gallery, set cost, distance, and cashback %.</Text>
-        <View className="mt-3">
-          <Input
-            placeholder="Search by name or city"
-            value={search}
-            onChangeText={setSearch}
-            leading={<Icon name="magnifyingglass" size={14} color={surface.ink3} />}
-          />
-        </View>
-      </View>
+  const list = (data ?? []) as RestaurantRow[];
+  const featured = list.filter((r) => r.featured).length;
+  const withGallery = list.filter((r) => (r.gallery_urls?.length ?? 0) > 0).length;
+  const verified = list.filter((r) => r.status === "verified").length;
 
-      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 80, gap: 10 }}>
-        {filtered.map((r) => (
+  return (
+    <PageScroll>
+      <PageHeader
+        eyebrow="DIME ADMIN · MARKETING · DINEOUT"
+        title="Dineout content & gallery"
+        subtitle="Set cost-for-two, distance, cashback % and curate the editorial gallery for each tenant."
+        rightSlot={
+          <View
+            style={{
+              flexDirection: "row", alignItems: "center", gap: 8,
+              height: 34, paddingHorizontal: 10, borderRadius: 8,
+              backgroundColor: ADMIN_PANEL, borderWidth: 1, borderColor: ADMIN_HAIRLINE,
+              minWidth: 240,
+            }}
+          >
+            <Icon name="magnifyingglass" size={12} color={ADMIN_INK3} />
+            <TextInput
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Search name or city"
+              placeholderTextColor={ADMIN_INK3}
+              style={{ flex: 1, color: ADMIN_INK, fontSize: 12.5, padding: 0, outlineStyle: "none" } as any}
+            />
+          </View>
+        }
+      />
+
+      <StatRow>
+        <StatTile icon="building.2.fill" iconBg="#1F1F1F" iconColor={ADMIN_INK} label="Tenants" value={String(list.length)} hint={`${verified} verified`} />
+        <StatTile icon="photo.fill" iconBg="#0E2F1F" iconColor={ADMIN_GREEN} label="With gallery" value={String(withGallery)} hint="Have ≥ 1 photo" />
+        <StatTile icon="star.fill" iconBg="#2B1810" iconColor={ADMIN_ACCENT} label="Featured" value={String(featured)} hint="On Discover hero" />
+        <StatTile icon="exclamationmark.circle.fill" iconBg="#2A2210" iconColor={ADMIN_AMBER} label="Need photos" value={String(list.length - withGallery)} hint="Editorial backlog" />
+      </StatRow>
+
+      <CardShell>
+        <CardHeader title="Tenant directory" subtitle={`${filtered.length} match · click to edit`} />
+        {filtered.length === 0 ? (
+          <EmptyState icon="building.2.fill" title="No restaurants found" body="Adjust the search or wait for new tenants to apply." compact />
+        ) : null}
+        {filtered.map((r, i) => (
           <Pressable
             key={r.id}
             onPress={() => { haptic.light(); setSelected(r); }}
-            style={{
-              flexDirection: "row", gap: 14, alignItems: "center",
-              backgroundColor: "#fff", padding: 14, borderRadius: 16,
-              borderWidth: 1, borderColor: surface.hairline,
-            }}
+            style={({ hovered }: any) => ({
+              flexDirection: "row", alignItems: "center", gap: 14,
+              paddingHorizontal: 18, paddingVertical: 14,
+              borderTopWidth: i ? 1 : 0, borderTopColor: ADMIN_HAIRLINE,
+              backgroundColor: hovered ? ADMIN_HOVER : "transparent",
+            })}
           >
             {r.cover_image_url ? (
-              <Image source={{ uri: r.cover_image_url }} style={{ width: 56, height: 56, borderRadius: 12 }} />
+              <Image source={{ uri: r.cover_image_url }} style={{ width: 52, height: 52, borderRadius: 10, backgroundColor: ADMIN_PANEL2 }} />
             ) : (
-              <View style={{ width: 56, height: 56, borderRadius: 12, backgroundColor: "#F2F2F2", alignItems: "center", justifyContent: "center" }}>
-                <Icon name="building.2.fill" size={20} color={surface.ink4} />
+              <View style={{ width: 52, height: 52, borderRadius: 10, backgroundColor: ADMIN_PANEL2, borderWidth: 1, borderColor: ADMIN_HAIRLINE2, alignItems: "center", justifyContent: "center" }}>
+                <Icon name="building.2.fill" size={18} color={ADMIN_INK3} />
               </View>
             )}
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 14, fontWeight: "700", color: surface.ink }}>{r.name}</Text>
-              <Text style={{ marginTop: 2, fontSize: 12, color: surface.ink3 }}>
-                {r.city} · ₹{r.cost_for_two ?? 1200} for two · {r.cashback_pct ?? 20}% cashback
-              </Text>
-              <View style={{ marginTop: 6, flexDirection: "row", gap: 6 }}>
-                <Badge tone={r.gallery_urls && r.gallery_urls.length > 0 ? "green" : "gray"} label={`${r.gallery_urls?.length ?? 0} photos`} />
-                {r.featured ? <Badge tone="orange" label="Featured" /> : null}
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text numberOfLines={1} style={{ fontSize: 14, fontWeight: "700", color: ADMIN_INK }}>{r.name}</Text>
+              <MonoText size={11} color={ADMIN_INK3}>{(r.city ?? "—").toUpperCase()} · ₹{r.cost_for_two ?? 1200} FOR TWO · {r.cashback_pct ?? 20}% CASHBACK</MonoText>
+              <View style={{ marginTop: 5, flexDirection: "row", gap: 6 }}>
+                <Pill tone={(r.gallery_urls?.length ?? 0) > 0 ? "green" : "neutral"} icon="photo.fill">{r.gallery_urls?.length ?? 0} photos</Pill>
+                {r.featured ? <Pill tone="saffron" icon="star.fill">Featured</Pill> : null}
               </View>
             </View>
-            <Icon name="chevron.right" size={14} color={surface.ink3} />
+            <Icon name="chevron.right" size={13} color={ADMIN_INK3} />
           </Pressable>
         ))}
-
-        {filtered.length === 0 ? (
-          <View style={{ paddingVertical: 60, alignItems: "center" }}>
-            <Text style={{ fontSize: 13, color: surface.ink3 }}>No restaurants found.</Text>
-          </View>
-        ) : null}
-      </ScrollView>
+      </CardShell>
 
       <DineoutEditSheet
         restaurant={selected}
@@ -116,7 +141,7 @@ export default function AdminDineout() {
           toast.success("Saved", "Dineout settings updated.");
         }}
       />
-    </Screen>
+    </PageScroll>
   );
 }
 

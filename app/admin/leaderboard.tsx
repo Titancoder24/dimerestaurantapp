@@ -1,12 +1,23 @@
 import { useMemo, useState } from "react";
-import { FlatList, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
-import { Badge, Chip, ChipRow, Icon, Screen } from "@/components/ui";
+import { Icon, haptic } from "@/components/ui";
 import { supabase, type Tables } from "@/lib/supabase";
 import { rupees } from "@/lib/format";
+import {
+  PageScroll, PageHeader, CardShell, CardHeader, MonoText, EmptyState, Pill,
+  ADMIN_BG, ADMIN_INK, ADMIN_INK2, ADMIN_INK3, ADMIN_HAIRLINE, ADMIN_HAIRLINE2,
+  ADMIN_PANEL, ADMIN_PANEL2, ADMIN_ACCENT, ADMIN_GREEN, ADMIN_RED, ADMIN_AMBER, ADMIN_MONO,
+} from "@/components/admin/shell";
 
 type Metric = "gmv" | "rating" | "orders" | "growth";
+const metrics: { id: Metric; label: string }[] = [
+  { id: "gmv", label: "By GMV" },
+  { id: "rating", label: "By rating" },
+  { id: "orders", label: "By volume" },
+  { id: "growth", label: "By growth" },
+];
 
 export default function Leaderboard() {
   const [metric, setMetric] = useState<Metric>("gmv");
@@ -59,60 +70,95 @@ export default function Leaderboard() {
   }, [restaurants, orders, metric]);
 
   return (
-    <Screen scroll={false} className="bg-neutral-50">
-      <View className="bg-white px-6 pb-4 pt-5" style={{ borderBottomWidth: 1, borderBottomColor: "rgba(0,0,0,0.04)" }}>
-        <Text className="text-[11px] font-bold uppercase text-dime-ink-4" style={{ letterSpacing: 1.2 }}>Growth</Text>
-        <View className="flex-row items-baseline gap-2">
-          <Text className="text-[24px] font-bold text-dime-ink" style={{ letterSpacing: -0.5 }}>Leaderboard</Text>
-          <Text className="text-[13px] text-dime-ink-4">{ranked.length} verified · 60 days</Text>
-        </View>
+    <PageScroll>
+      <PageHeader
+        eyebrow="DIME ADMIN · GROWTH · BENCHMARKS"
+        title="Tenant leaderboard"
+        subtitle={`${ranked.length} verified · trailing 60 days`}
+        rightSlot={<Pill tone="amber" icon="crown.fill">Top 10</Pill>}
+      />
+
+      <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
+        {metrics.map((m) => {
+          const active = m.id === metric;
+          return (
+            <Pressable
+              key={m.id}
+              onPress={() => { haptic.light(); setMetric(m.id); }}
+              style={{
+                paddingHorizontal: 12, paddingVertical: 7, borderRadius: 7,
+                backgroundColor: active ? ADMIN_INK : ADMIN_PANEL,
+                borderWidth: 1, borderColor: active ? ADMIN_INK : ADMIN_HAIRLINE,
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: "700", color: active ? ADMIN_BG : ADMIN_INK2, letterSpacing: -0.1 }}>{m.label}</Text>
+            </Pressable>
+          );
+        })}
       </View>
 
-      <View className="px-5 pt-4">
-        <ChipRow>
-          <Chip label="By GMV" selected={metric === "gmv"} onPress={() => setMetric("gmv")} />
-          <Chip label="By rating" selected={metric === "rating"} onPress={() => setMetric("rating")} />
-          <Chip label="By volume" selected={metric === "orders"} onPress={() => setMetric("orders")} />
-          <Chip label="By growth" selected={metric === "growth"} onPress={() => setMetric("growth")} />
-        </ChipRow>
-      </View>
-
-      <FlatList
-        data={ranked}
-        keyExtractor={(r) => r.restaurant.id}
-        contentContainerStyle={{ padding: 20, gap: 10, paddingBottom: 120 }}
-        renderItem={({ item, index }) => (
-          <View className="flex-row items-center gap-4 rounded-2xl bg-white p-4" style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 12, elevation: 2, borderWidth: 1, borderColor: "rgba(0,0,0,0.04)" }}>
-            <View className={`h-10 w-10 items-center justify-center rounded-xl ${index === 0 ? "bg-amber-100" : index === 1 ? "bg-neutral-100" : index === 2 ? "bg-orange-100" : "bg-neutral-50"}`}>
-              <Text className={`text-[14px] font-bold ${index < 3 ? "text-amber-700" : "text-dime-ink-2"}`}>{index + 1}</Text>
-            </View>
-            <View className="flex-1">
-              <Text className="text-[14px] font-bold text-dime-ink">{item.restaurant.name}</Text>
-              <Text className="text-[11px] text-dime-ink-3">
-                {item.restaurant.city} · {item.restaurant.cuisines.slice(0, 2).join(", ")}
-              </Text>
-              <View className="mt-1 flex-row gap-1.5">
-                <View className="flex-row items-center gap-1 rounded-md bg-green-50 px-1.5 py-0.5">
-                  <Icon name="star.fill" size={10} color="#22C55E" />
-                  <Text className="text-[10px] font-bold text-green-700">{Number(item.restaurant.rating).toFixed(1)}</Text>
+      <CardShell>
+        <CardHeader title="Tenants ranked" subtitle={`Sorted by ${metrics.find((m) => m.id === metric)?.label.toLowerCase()}`} />
+        {ranked.length === 0 ? (
+          <EmptyState icon="crown.fill" title="No verified tenants yet" body="Once restaurants are verified and start taking paid orders, they rank here." compact />
+        ) : null}
+        {ranked.map((item, i) => {
+          const medalBg = i === 0 ? "#2A2210" : i === 1 ? ADMIN_PANEL2 : i === 2 ? "#2B1810" : ADMIN_PANEL2;
+          const medalColor = i === 0 ? ADMIN_AMBER : i === 1 ? ADMIN_INK2 : i === 2 ? ADMIN_ACCENT : ADMIN_INK3;
+          return (
+            <View
+              key={item.restaurant.id}
+              style={{
+                flexDirection: "row", alignItems: "center", gap: 14,
+                paddingHorizontal: 18, paddingVertical: 14,
+                borderTopWidth: i ? 1 : 0, borderTopColor: ADMIN_HAIRLINE,
+              }}
+            >
+              <View
+                style={{
+                  width: 36, height: 36, borderRadius: 10,
+                  backgroundColor: medalBg, borderWidth: 1, borderColor: ADMIN_HAIRLINE2,
+                  alignItems: "center", justifyContent: "center",
+                }}
+              >
+                <MonoText size={13} weight="700" color={medalColor}>{String(i + 1).padStart(2, "0")}</MonoText>
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text numberOfLines={1} style={{ fontSize: 14, fontWeight: "700", color: ADMIN_INK, letterSpacing: -0.2 }}>{item.restaurant.name}</Text>
+                <Text numberOfLines={1} style={{ marginTop: 3, fontSize: 11.5, color: ADMIN_INK2 }}>
+                  {item.restaurant.city ?? "—"} · {item.restaurant.cuisines.slice(0, 2).join(", ")}
+                </Text>
+                <View style={{ marginTop: 5, flexDirection: "row", gap: 6 }}>
+                  <View
+                    style={{
+                      flexDirection: "row", alignItems: "center", gap: 4,
+                      paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5,
+                      backgroundColor: "#0E2F1F", borderWidth: 1, borderColor: "#1A5C3A",
+                    }}
+                  >
+                    <Icon name="star.fill" size={9} color={ADMIN_GREEN} />
+                    <Text style={{ fontSize: 10, fontWeight: "700", color: ADMIN_GREEN, fontFamily: ADMIN_MONO }}>
+                      {Number(item.restaurant.rating).toFixed(1)}
+                    </Text>
+                  </View>
+                  <Pill>{item.orders} orders</Pill>
                 </View>
-                <Badge tone="gray" label={`${item.orders} orders`} />
+              </View>
+              <View style={{ alignItems: "flex-end" }}>
+                {metric === "gmv" ? <MonoText size={15} weight="700" color={ADMIN_INK}>{rupees(item.gmv)}</MonoText> : null}
+                {metric === "rating" ? <MonoText size={15} weight="700" color={ADMIN_INK}>{Number(item.restaurant.rating).toFixed(2)} ★</MonoText> : null}
+                {metric === "orders" ? <MonoText size={15} weight="700" color={ADMIN_INK}>{item.orders}</MonoText> : null}
+                {metric === "growth" ? (
+                  <MonoText size={15} weight="700" color={item.growth >= 0 ? ADMIN_GREEN : ADMIN_RED}>
+                    {item.growth >= 0 ? "▲" : "▼"} {Math.abs(item.growth).toFixed(0)}%
+                  </MonoText>
+                ) : null}
+                <MonoText size={10} color={ADMIN_INK3}>{metrics.find((m) => m.id === metric)?.label.replace("By ", "").toUpperCase()}</MonoText>
               </View>
             </View>
-            <View className="items-end">
-              {metric === "gmv" ? <Text className="text-[15px] font-bold text-dime-ink" style={{ letterSpacing: -0.5 }}>{rupees(item.gmv)}</Text> : null}
-              {metric === "rating" ? <Text className="text-[15px] font-bold text-dime-ink" style={{ letterSpacing: -0.5 }}>{Number(item.restaurant.rating).toFixed(2)} ★</Text> : null}
-              {metric === "orders" ? <Text className="text-[15px] font-bold text-dime-ink" style={{ letterSpacing: -0.5 }}>{item.orders}</Text> : null}
-              {metric === "growth" ? (
-                <Text className={`text-[15px] font-bold ${item.growth >= 0 ? "text-emerald-600" : "text-dime-danger"}`} style={{ letterSpacing: -0.5 }}>
-                  {item.growth >= 0 ? "▲" : "▼"} {Math.abs(item.growth).toFixed(0)}%
-                </Text>
-              ) : null}
-            </View>
-          </View>
-        )}
-        ListEmptyComponent={<Text className="px-5 py-12 text-center text-[13px] text-dime-ink-3">No data.</Text>}
-      />
-    </Screen>
+          );
+        })}
+      </CardShell>
+    </PageScroll>
   );
 }

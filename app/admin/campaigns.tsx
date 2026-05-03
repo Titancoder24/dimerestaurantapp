@@ -1,11 +1,17 @@
 import { useEffect, useState } from "react";
-import { FlatList, Pressable, Text, TextInput, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Badge, Button, Chip, ChipRow, Header, Icon, Input, Screen, Sheet, haptic } from "@/components/ui";
+import { Badge, Button, Chip, ChipRow, Input, Sheet, haptic } from "@/components/ui";
 import { supabase, type Tables } from "@/lib/supabase";
 import { useAuth } from "@/store/auth";
 import { useToast } from "@/store/toast";
 import { timeAgo } from "@/lib/format";
+import {
+  PageScroll, PageHeader, CardShell, CardHeader, MonoText, EmptyState, Pill,
+  StatRow, StatTile,
+  ADMIN_INK, ADMIN_INK2, ADMIN_INK3, ADMIN_HAIRLINE,
+  ADMIN_HOVER, ADMIN_ACCENT, ADMIN_GREEN, ADMIN_AMBER, ADMIN_MONO,
+} from "@/components/admin/shell";
 
 type Campaign = Tables<"campaigns">;
 
@@ -39,56 +45,66 @@ export default function Campaigns() {
   const totalDelivered = (data ?? []).reduce((s, c) => s + c.recipients_count, 0);
 
   return (
-    <Screen scroll={false}>
-      <Header
-        title="Marketing Campaigns"
-        subtitle={`${totalDelivered.toLocaleString()} notifications delivered`}
-        right={
-          <Pressable onPress={() => setComposing({})} className="rounded-full bg-dime-primary-500 px-3 py-1.5">
-            <Text className="text-[12px] font-bold text-white">+ New</Text>
-          </Pressable>
-        }
+    <PageScroll>
+      <PageHeader
+        eyebrow="DIME ADMIN · MARKETING · ACQUISITION"
+        title="Marketing campaigns"
+        subtitle={`${totalDelivered.toLocaleString("en-IN")} notifications delivered to date`}
+        rightAction="New campaign"
+        actionIcon="plus"
+        onAction={() => setComposing({})}
       />
 
-      <View className="flex-row gap-2 px-5">
-        <Tile color="bg-emerald-500" label="Sent" value={counts.sent} />
-        <Tile color="bg-amber-500" label="Scheduled" value={counts.scheduled} />
-        <Tile color="bg-gray-500" label="Drafts" value={counts.draft} />
-      </View>
+      <StatRow>
+        <StatTile icon="paperplane.fill" iconBg="#0E2F1F" iconColor={ADMIN_GREEN} label="Sent" value={String(counts.sent)} hint="Delivered to recipients" />
+        <StatTile icon="clock.fill" iconBg="#2A2210" iconColor={ADMIN_AMBER} label="Scheduled" value={String(counts.scheduled)} hint="Queued for later" />
+        <StatTile icon="doc.text.fill" iconBg="#1F1F1F" iconColor={ADMIN_INK} label="Drafts" value={String(counts.draft)} hint="In progress" />
+        <StatTile icon="bell.fill" iconBg="#2B1810" iconColor={ADMIN_ACCENT} label="Total reach" value={totalDelivered.toLocaleString("en-IN")} hint="Lifetime delivery" />
+      </StatRow>
 
-      <FlatList
-        data={data ?? []}
-        keyExtractor={(c) => c.id}
-        contentContainerStyle={{ padding: 20, gap: 10, paddingBottom: 120 }}
-        ListEmptyComponent={
-          <View className="items-center py-16">
-            <Icon name="gift.fill" size={28} color="#BFBFBF" />
-            <Text className="mt-2 text-[15px] font-bold text-dime-ink" style={{ letterSpacing: -0.5 }}>No campaigns yet</Text>
-            <Text className="mt-1 text-[13px] text-dime-ink-3">Reach customers with targeted in-app messages.</Text>
-          </View>
-        }
-        renderItem={({ item: c }) => (
-          <Pressable onPress={() => setComposing(c)} className="rounded-2xl bg-white p-4" style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 12, elevation: 2 }}>
-            <View className="flex-row items-center gap-2">
-              <Text className="flex-1 text-[14px] font-bold text-dime-ink">{c.title}</Text>
-              <Badge tone={c.status === "sent" ? "green" : c.status === "scheduled" ? "orange" : "gray"} label={c.status} />
+      <CardShell>
+        <CardHeader title="Campaign history" subtitle={`${(data ?? []).length} campaigns · click to edit drafts`} />
+        {(data ?? []).length === 0 ? (
+          <EmptyState
+            icon="gift.fill"
+            title="No campaigns yet"
+            body="Reach diners with targeted in-app messages. Segment by loyalty tier, signup date, or inactivity."
+            actionLabel="Compose first campaign"
+            onAction={() => setComposing({})}
+            compact
+          />
+        ) : null}
+        {(data ?? []).map((c, i) => (
+          <Pressable
+            key={c.id}
+            onPress={() => setComposing(c)}
+            style={({ hovered }: any) => ({
+              paddingHorizontal: 18, paddingVertical: 14,
+              borderTopWidth: i ? 1 : 0, borderTopColor: ADMIN_HAIRLINE,
+              backgroundColor: hovered ? ADMIN_HOVER : "transparent",
+            })}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Text numberOfLines={1} style={{ flex: 1, fontSize: 14, fontWeight: "700", color: ADMIN_INK }}>{c.title}</Text>
+              <Pill tone={c.status === "sent" ? "green" : c.status === "scheduled" ? "amber" : "neutral"}>{c.status}</Pill>
             </View>
-            <Text numberOfLines={2} className="mt-1 text-[12px] text-dime-ink-2">{c.body}</Text>
-            <View className="mt-2 flex-row items-center gap-2">
-              <Badge tone="orange" label={segmentLabel(c.segment as Segment)} />
-              {c.recipients_count > 0 ? <Badge tone="green" label={`${c.recipients_count} delivered`} /> : null}
-              <Text className="ml-auto text-[11px] text-dime-ink-3">{timeAgo(c.created_at)}</Text>
+            <Text numberOfLines={2} style={{ marginTop: 4, fontSize: 12.5, color: ADMIN_INK2, lineHeight: 18 }}>{c.body}</Text>
+            <View style={{ marginTop: 8, flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <Pill tone="saffron">{segmentLabel(c.segment as Segment)}</Pill>
+              {c.recipients_count > 0 ? <Pill tone="green">{c.recipients_count.toLocaleString("en-IN")} delivered</Pill> : null}
+              <View style={{ flex: 1 }} />
+              <MonoText size={10.5} color={ADMIN_INK3}>{timeAgo(c.created_at).toUpperCase()}</MonoText>
             </View>
           </Pressable>
-        )}
-      />
+        ))}
+      </CardShell>
 
       <ComposeSheet
         campaign={composing}
         onClose={() => setComposing(null)}
         onSaved={() => { setComposing(null); qc.invalidateQueries({ queryKey: ["campaigns"] }); }}
       />
-    </Screen>
+    </PageScroll>
   );
 }
 
@@ -98,15 +114,6 @@ function segmentLabel(seg: Segment): string {
   if (seg.new_users) return "New signups (7d)";
   if (seg.inactive_days) return `Inactive ${seg.inactive_days}d+`;
   return "Custom";
-}
-
-function Tile({ color, label, value }: { color: string; label: string; value: number }) {
-  return (
-    <View className={`flex-1 items-center rounded-2xl ${color} py-3`}>
-      <Text className="text-[22px] font-bold text-white">{value}</Text>
-      <Text className="text-[11px] font-bold uppercase text-white/90" style={{ letterSpacing: 1.5 }}>{label}</Text>
-    </View>
-  );
 }
 
 function ComposeSheet({

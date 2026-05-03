@@ -1,289 +1,217 @@
 import { useMemo, useState } from "react";
-import { FlatList, Pressable, ScrollView, Text, View } from "react-native";
-import { useLocalSearchParams } from "expo-router";
-import {
-  Chip,
-  DottedUnderline,
-  Icon,
-  Input,
-  Screen,
-  SegmentedTabs,
-  haptic,
-} from "@/components/ui";
-import { useDineoutRestaurants, type DineoutFilters } from "@/hooks/queries";
-import { DineoutCard } from "@/components/restaurant/DineoutCard";
+import { Pressable, ScrollView, Text, View } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { Icon, Screen, haptic } from "@/components/ui";
+import { useDineoutRestaurants, type DineoutFilters, type DineoutRestaurant } from "@/hooks/queries";
 import { useToast } from "@/store/toast";
-import { useBreakpoint } from "@/lib/responsive";
-import { surface } from "@/lib/visual";
-import { HeroBanner } from "@/components/web/HeroBanner";
-import { SEOContent } from "@/components/web/SEOContent";
-import { AppDownloadBand } from "@/components/web/AppDownloadBand";
-import { LinkChipGrid } from "@/components/web/LinkChipGrid";
-import { WebFooter } from "@/components/web/WebFooter";
-
-const cuisines = ["All", "North Indian", "Italian", "Japanese", "Chinese", "Continental", "Pizza", "Mughlai"];
-const modeTabs = [
-  { key: "online", label: "Order Online" },
-  { key: "dineout", label: "Dineout" },
-];
-
-const LOCALITIES = [
-  "Magadi Road", "Maruti Nagar", "Yelahanka", "Kanchipuram", "Central Bangalore",
-  "Murugeshpalya", "Hennur", "Kunigal", "Kadubeesanahalli", "Bidadi", "Navarathna Agrahara",
-];
-
-const TOP_CUISINES = [
-  "American", "Andhra", "Arabian", "Asian", "Awadhi", "BBQ",
-  "Bakery", "Bar Food", "Bengali", "Beverages", "Bihari",
-];
-
-const NEAR_ME = TOP_CUISINES.map((c) => `${c} near me`);
+import { T } from "@/lib/visual";
+import { Img, Pill, StarChip, Chip, display, mono, num } from "@/components/dime/atoms";
 
 export default function Discover() {
+  const router = useRouter();
   const params = useLocalSearchParams<{ q?: string }>();
-  const { isWeb, isDesktop, isTablet } = useBreakpoint();
   const toast = useToast();
 
-  const [mode, setMode] = useState("dineout");
+  const [filter, setFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
-  const [cuisine, setCuisine] = useState<string>("All");
-  const [withinKm, setWithinKm] = useState<number | undefined>(undefined);
-  const [minRating, setMinRating] = useState<number | undefined>(undefined);
-  const [pureVeg, setPureVeg] = useState(false);
-  const [servesAlcohol, setServesAlcohol] = useState(false);
-  const [page, setPage] = useState(1);
 
   const filters: DineoutFilters = useMemo(() => ({
-    cuisine,
-    withinKm,
-    minRating,
-    pureVeg,
-    servesAlcohol,
+    cuisine: filter === "all" || ["sort by", "within 5km", "rating 4+", "pure veg", "serves alcohol"].includes(filter)
+      ? undefined
+      : filter,
+    minRating: filter === "rating 4+" ? 4 : undefined,
+    pureVeg: filter === "pure veg",
+    servesAlcohol: filter === "serves alcohol",
+    withinKm: filter === "within 5km" ? 5 : undefined,
     search: search.trim() || undefined,
-  }), [cuisine, withinKm, minRating, pureVeg, servesAlcohol, search]);
+  }), [filter, search]);
 
   const { data: restaurants, isLoading } = useDineoutRestaurants(filters);
-
-  const filtered = useMemo(() => {
-    let list = restaurants ?? [];
-    if (params.q && params.q !== "fine_dine") {
+  const list = useMemo(() => {
+    let l = restaurants ?? [];
+    if (params.q) {
       const q = String(params.q).toLowerCase();
-      list = list.filter((r) =>
+      l = l.filter((r) =>
         r.name.toLowerCase().includes(q) ||
-        r.cuisines.some((c) => c.toLowerCase().includes(q)) ||
-        (r.city ?? "").toLowerCase().includes(q),
+        r.cuisines.some((c) => c.toLowerCase().includes(q))
       );
     }
-    if (params.q === "fine_dine") list = list.filter((r) => r.type === "fine_dine");
-    return list;
+    return l;
   }, [restaurants, params.q]);
 
-  const visible = isWeb && isDesktop ? filtered.slice(0, page * 21) : filtered;
-
-  /* ----------------------------- WEB DESKTOP/TABLET LAYOUT ----------------------------- */
-  if (isWeb && (isDesktop || isTablet)) {
-    const cols = isDesktop ? 3 : 2;
-    const gap = 16;
-    const cellWidth = `calc(${100 / cols}% - ${(gap * (cols - 1)) / cols}px)` as unknown as number;
-
-    return (
-      <Screen>
-        <View style={{ paddingHorizontal: 24, maxWidth: 1200, width: "100%", alignSelf: "center" }}>
-          <HeroBanner city="Bangalore" count={filtered.length} />
-
-          <View style={{ marginTop: 18 }}>
-            <SegmentedTabs
-              variant="web"
-              tabs={modeTabs}
-              active={mode}
-              onChange={(k) => {
-                if (k === "online") {
-                  haptic.light();
-                  toast.success("Coming soon", "Order online is rolling out shortly.");
-                  return;
-                }
-                setMode(k);
-              }}
-              scrollable={false}
-            />
-          </View>
-
-          <View style={{ marginTop: 16 }}>
-            <Input
-              placeholder="Search restaurants & cuisines"
-              value={search}
-              onChangeText={setSearch}
-              leading={<Icon name="magnifyingglass" size={16} color={surface.ink3} />}
-              returnKeyType="search"
-            />
-          </View>
-
-          <View style={{ marginTop: 14, flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-            <Chip label="Filter" leading={<Icon name="slider.horizontal.3" size={11} color={surface.ink} />} onPress={() => toast.success("Coming soon", "Advanced filters")} />
-            <Chip label="Sort By" onPress={() => toast.success("Coming soon", "Sort options")} />
-            <Chip label="Within 5km" selected={withinKm === 5} onPress={() => setWithinKm((v) => v === 5 ? undefined : 5)} />
-            <Chip label="Rating 4+" selected={minRating === 4} onPress={() => setMinRating((v) => v === 4 ? undefined : 4)} />
-            <Chip label="Pure Veg" selected={pureVeg} onPress={() => setPureVeg((v) => !v)} />
-            <Chip label="Serves Alcohol" selected={servesAlcohol} onPress={() => setServesAlcohol((v) => !v)} />
-            {cuisines.map((c) => (
-              <Chip key={c} label={c} selected={cuisine === c} onPress={() => setCuisine(c)} />
-            ))}
-          </View>
-
-          <Text style={{ marginTop: 18, fontSize: 13, color: surface.ink3 }}>
-            {filtered.length} restaurant{filtered.length !== 1 ? "s" : ""} in Bangalore
-          </Text>
-
-          <View style={{ marginTop: 14, flexDirection: "row", flexWrap: "wrap", gap }}>
-            {visible.map((r) => (
-              <View key={r.id} style={{ width: cellWidth }}>
-                <DineoutCard restaurant={r} variant="web" />
-              </View>
-            ))}
-          </View>
-
-          {visible.length < filtered.length ? (
-            <View style={{ alignItems: "center", marginTop: 24 }}>
-              <Pressable
-                onPress={() => { haptic.light(); setPage((p) => p + 1); }}
-                style={{
-                  paddingHorizontal: 28,
-                  paddingVertical: 12,
-                  borderRadius: 999,
-                  borderWidth: 1.5,
-                  borderColor: "#FC8019",
-                }}
-              >
-                <Text style={{ fontSize: 13, fontWeight: "700", color: "#FC8019" }}>Show more restaurants</Text>
-              </Pressable>
-            </View>
-          ) : null}
-
-          {filtered.length === 0 && !isLoading ? (
-            <View style={{ alignItems: "center", paddingVertical: 80 }}>
-              <View
-                style={{
-                  width: 56, height: 56, borderRadius: 28,
-                  backgroundColor: "#F2F2F2", alignItems: "center", justifyContent: "center",
-                  marginBottom: 12,
-                }}
-              >
-                <Icon name="magnifyingglass" size={22} color={surface.ink3} />
-              </View>
-              <Text style={{ fontSize: 16, fontWeight: "700", color: surface.ink }}>No results found</Text>
-              <Text style={{ marginTop: 4, fontSize: 13, color: surface.ink3 }}>Try another cuisine or clear filters.</Text>
-            </View>
-          ) : null}
-
-          <SEOContent city="Bangalore" />
-          <AppDownloadBand />
-          <LinkChipGrid title="Explore localities in and around Bangalore" items={LOCALITIES.map((l) => ({ label: l, href: `/discover?q=${l}` }))} />
-          <LinkChipGrid title="Explore Top Cuisine Dining Spots in Bangalore" items={TOP_CUISINES.map((l) => ({ label: l, href: `/discover?q=${l}` }))} />
-          <LinkChipGrid title="More Cuisines Restaurants Options Near Me" items={NEAR_ME.map((l) => ({ label: l, href: `/discover?q=${l.replace(" near me", "")}` }))} />
-          <WebFooter />
-        </View>
-      </Screen>
-    );
-  }
-
-  /* ----------------------------- MOBILE LAYOUT ----------------------------- */
   return (
-    <Screen scroll={false}>
-      <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, backgroundColor: "#fff" }}>
-        <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" }}>
-          <View>
-            <Text style={{ fontSize: 22, fontWeight: "700", color: surface.ink, letterSpacing: -0.5 }}>Dineout</Text>
-            <Text style={{ marginTop: 2, fontSize: 12, color: surface.ink3 }}>
-              {filtered.length} restaurant{filtered.length !== 1 ? "s" : ""} in{" "}
-              <Text style={{ color: surface.ink, fontWeight: "600" }}>Bangalore</Text>
-            </Text>
-          </View>
+    <Screen scroll={false} className="bg-[#F6F2EC]">
+      <View style={{ paddingTop: 14, paddingHorizontal: 18, paddingBottom: 8, flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" }}>
+        <View>
+          <Text style={display(28, "600", -0.6)}>Dineout</Text>
+          <Text style={[num(12, "500"), { color: T.muted, marginTop: 2 }]}>
+            {list.length} restaurants · Bangalore
+          </Text>
+        </View>
+        <Pressable
+          onPress={() => { haptic.light(); toast.success("Coming soon", "City switcher"); }}
+          style={{
+            flexDirection: "row", alignItems: "center", gap: 4,
+            paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999,
+            backgroundColor: T.card, borderWidth: 1, borderColor: T.hairline,
+          }}
+        >
+          <Icon name="mappin" size={14} color={T.ink} />
+          <Text style={{ fontSize: 12, fontWeight: "600", color: T.ink }}>Bangalore</Text>
+        </Pressable>
+      </View>
+
+      {/* Search */}
+      <View style={{ paddingHorizontal: 18, paddingTop: 4, paddingBottom: 12 }}>
+        <View
+          style={{
+            height: 48, borderRadius: 14,
+            backgroundColor: T.card, borderWidth: 1, borderColor: T.hairline,
+            flexDirection: "row", alignItems: "center", paddingHorizontal: 14, gap: 10,
+          }}
+        >
+          <Icon name="magnifyingglass" size={18} color={T.muted} />
           <Pressable
-            onPress={() => { haptic.light(); toast.success("Coming soon", "City switcher"); }}
-            style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+            style={{ flex: 1 }}
+            onPress={() => { haptic.light(); toast.success("Coming soon", "Live search"); }}
           >
-            <Icon name="mappin" size={13} color="#FC8019" />
-            <DottedUnderline textStyle={{ fontSize: 13, fontWeight: "600", color: surface.ink }}>
-              Bangalore
-            </DottedUnderline>
-            <Icon name="chevron.down" size={10} color={surface.ink3} />
+            <Text style={{ fontSize: 13, color: T.muted }}>Search restaurants & cuisines</Text>
           </Pressable>
         </View>
       </View>
 
-      <SegmentedTabs
-        tabs={modeTabs}
-        active={mode}
-        onChange={(k) => {
-          if (k === "online") {
-            haptic.light();
-            toast.success("Coming soon", "Order online is rolling out shortly.");
-            return;
-          }
-          setMode(k);
-        }}
-        scrollable={false}
-      />
-
-      <View style={{ paddingHorizontal: 16, paddingTop: 12, backgroundColor: "#fff" }}>
-        <Input
-          placeholder="Search restaurants & cuisines"
-          value={search}
-          onChangeText={setSearch}
-          leading={<Icon name="magnifyingglass" size={16} color={surface.ink3} />}
-          returnKeyType="search"
-        />
-      </View>
-
-      <View style={{ paddingTop: 10, paddingBottom: 6, backgroundColor: "#fff" }}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
+      {/* Filter chips */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 18, gap: 8, paddingBottom: 14 }}
+      >
+        <Pressable
+          onPress={() => { haptic.light(); toast.success("Coming soon", "Advanced filters"); }}
+          style={{
+            paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,
+            backgroundColor: T.ink,
+            flexDirection: "row", alignItems: "center", gap: 6,
+          }}
         >
-          <Chip label="Filter" leading={<Icon name="slider.horizontal.3" size={11} color={surface.ink} />} onPress={() => toast.success("Coming soon", "Advanced filters")} />
-          <Chip label="Sort By" onPress={() => toast.success("Coming soon", "Sort options")} />
-          <Chip label="Within 5km" selected={withinKm === 5} onPress={() => setWithinKm((v) => v === 5 ? undefined : 5)} />
-          <Chip label="Rating 4+" selected={minRating === 4} onPress={() => setMinRating((v) => v === 4 ? undefined : 4)} />
-          <Chip label="Pure Veg" selected={pureVeg} onPress={() => setPureVeg((v) => !v)} />
-          <Chip label="Serves Alcohol" selected={servesAlcohol} onPress={() => setServesAlcohol((v) => !v)} />
-          {cuisines.map((c) => (
-            <Chip key={c} label={c} selected={cuisine === c} onPress={() => setCuisine(c)} />
-          ))}
-        </ScrollView>
-      </View>
+          <Icon name="slider.horizontal.3" size={14} color={T.cream} />
+          <Text style={{ fontSize: 13, fontWeight: "600", color: T.cream }}>Filter</Text>
+        </Pressable>
+        {["Sort By", "Within 5km", "Rating 4+", "Pure Veg", "Serves Alcohol", "All", "North Indian", "Italian", "Japanese"].map((c) => (
+          <Chip
+            key={c}
+            active={c.toLowerCase() === filter || (c === "All" && filter === "all")}
+            onPress={() => setFilter(c.toLowerCase())}
+          >
+            {c}
+          </Chip>
+        ))}
+      </ScrollView>
 
-      <View style={{ height: 8, backgroundColor: surface.divider }} />
-
-      <FlatList
-        data={filtered}
-        keyExtractor={(r) => r.id}
-        numColumns={2}
-        columnWrapperStyle={{ gap: 10, paddingHorizontal: 16 }}
-        contentContainerStyle={{ paddingTop: 14, paddingBottom: 100, gap: 12, backgroundColor: "#fff" }}
-        renderItem={({ item }) => (
-          <View style={{ width: "48%", flexGrow: 0 }}>
-            <DineoutCard restaurant={item} />
+      {/* Cards list */}
+      <ScrollView
+        contentContainerStyle={{ paddingHorizontal: 18, gap: 12, paddingBottom: 110 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {list.map((r) => (
+          <DiscoverCard
+            key={r.id}
+            r={r as DineoutRestaurant}
+            onPress={() => router.push({ pathname: "/restaurant/[id]", params: { id: r.id } })}
+          />
+        ))}
+        {list.length === 0 && !isLoading ? (
+          <View style={{ alignItems: "center", paddingVertical: 80 }}>
+            <Icon name="magnifyingglass" size={28} color={T.muted} />
+            <Text style={[display(18, "600", -0.3), { marginTop: 12 }]}>No results found</Text>
+            <Text style={{ marginTop: 4, fontSize: 13, color: T.muted }}>Try another cuisine or clear filters.</Text>
           </View>
-        )}
-        ListEmptyComponent={
-          isLoading ? null : (
-            <View style={{ alignItems: "center", paddingVertical: 80 }}>
-              <View
-                style={{
-                  width: 56, height: 56, borderRadius: 28,
-                  backgroundColor: surface.divider, alignItems: "center", justifyContent: "center",
-                  marginBottom: 12,
-                }}
-              >
-                <Icon name="magnifyingglass" size={22} color={surface.ink3} />
-              </View>
-              <Text style={{ fontSize: 16, fontWeight: "700", color: surface.ink }}>No results found</Text>
-              <Text style={{ marginTop: 4, fontSize: 13, color: surface.ink3 }}>Try another cuisine or clear filters.</Text>
-            </View>
-          )
-        }
-      />
+        ) : null}
+      </ScrollView>
     </Screen>
+  );
+}
+
+function DiscoverCard({ r, onPress }: { r: DineoutRestaurant; onPress: () => void }) {
+  const cost = r.cost_for_two ?? 1200;
+  const distance = r.distance_km != null ? `${Number(r.distance_km).toFixed(1)} km` : null;
+  const offer = r.pre_booking_discount_pct
+    ? `Flat ${r.pre_booking_discount_pct}% off · pre-book`
+    : `${r.cashback_pct ?? 25}% cashback`;
+  return (
+    <Pressable
+      onPress={onPress}
+      style={{
+        backgroundColor: T.card, borderRadius: 16, overflow: "hidden",
+        borderWidth: 1, borderColor: T.hairline,
+      }}
+    >
+      <View style={{ position: "relative" }}>
+        <Img uri={r.cover_image_url} kind="restaurant" h={170} w={"100%" as unknown as number} radius={0} hue={28} />
+        {r.featured ? (
+          <Pill
+            bg={T.card}
+            color={T.ink}
+            size={10}
+            style={{ position: "absolute", top: 12, left: 12 }}
+            textStyle={{ letterSpacing: 1, textTransform: "uppercase", fontFamily: T.fontMono }}
+            icon={<Icon name="star.fill" size={10} color={T.amber} />}
+          >
+            Featured
+          </Pill>
+        ) : null}
+        <View style={{ position: "absolute", bottom: 12, left: 12, flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <StarChip score={Number(r.rating).toFixed(1)} />
+          <Text
+            style={[
+              num(11, "600"),
+              { color: "#fff", textShadowColor: "rgba(0,0,0,0.4)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
+            ]}
+          >
+            {r.review_count ?? 0}+ ratings
+          </Text>
+        </View>
+        <Pressable
+          style={{
+            position: "absolute", top: 12, right: 12,
+            width: 34, height: 34, borderRadius: 999,
+            backgroundColor: T.card,
+            alignItems: "center", justifyContent: "center",
+          }}
+        >
+          <Icon name="heart" size={16} color={T.ink} />
+        </Pressable>
+      </View>
+      <View style={{ padding: 14 }}>
+        <Text style={display(18, "600", -0.3)} numberOfLines={1}>{r.name}</Text>
+        <Text numberOfLines={1} style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>
+          {r.cuisines.slice(0, 4).join(" · ")}
+        </Text>
+        <View style={{ marginTop: 8, flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Text style={num(12, "500")}>₹{cost.toLocaleString("en-IN")} for two</Text>
+          <Text style={{ color: T.hairline, fontSize: 9 }}>•</Text>
+          {distance ? <Text style={num(12, "500")}>{distance}</Text> : null}
+          <Text style={{ color: T.hairline, fontSize: 9 }}>•</Text>
+          <View
+            style={{
+              paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999,
+              backgroundColor: T.forestSoft,
+            }}
+          >
+            <Text style={{ fontSize: 10, fontWeight: "600", color: T.forest }}>Table booking</Text>
+          </View>
+        </View>
+        <View
+          style={{
+            marginTop: 10, paddingHorizontal: 10, paddingVertical: 8,
+            borderRadius: 10, backgroundColor: T.cream,
+            flexDirection: "row", alignItems: "center", gap: 6,
+          }}
+        >
+          <Icon name="tag.fill" size={13} color={T.saffron} />
+          <Text style={{ fontSize: 12, fontWeight: "600", color: T.ink }}>{offer}</Text>
+        </View>
+      </View>
+    </Pressable>
   );
 }

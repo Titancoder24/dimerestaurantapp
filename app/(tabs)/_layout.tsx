@@ -4,11 +4,12 @@ import { Platform, Pressable, Text, useWindowDimensions, View } from "react-nati
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/store/auth";
 import { Icon, haptic } from "@/components/ui";
+import { T } from "@/lib/visual";
 
 type TabRoute = { name: "home" | "discover" | "bookings" | "profile"; label: string; icon: string };
 const tabs: TabRoute[] = [
   { name: "home", label: "Home", icon: "house.fill" },
-  { name: "discover", label: "Search", icon: "magnifyingglass" },
+  { name: "discover", label: "Discover", icon: "magnifyingglass" },
   { name: "bookings", label: "Bookings", icon: "calendar" },
   { name: "profile", label: "Account", icon: "person.fill" },
 ];
@@ -48,11 +49,15 @@ export default function CustomerTabs() {
       screenOptions={{ headerShown: false, tabBarStyle: { display: "none" } }}
       tabBar={useTopNavOnly ? () => null : ({ state, navigation }) => (
         <View
-          className="flex-row items-center justify-around bg-white px-2 pt-2"
           style={{
-            paddingBottom: Math.max(insets.bottom, 10),
+            flexDirection: "row",
+            justifyContent: "space-around",
+            backgroundColor: T.card,
+            paddingTop: 10,
+            paddingHorizontal: 14,
+            paddingBottom: Math.max(insets.bottom, 12),
             borderTopWidth: 1,
-            borderTopColor: "#F0F0F0",
+            borderTopColor: T.hairline,
           }}
         >
           {tabs.map((t, i) => {
@@ -61,12 +66,24 @@ export default function CustomerTabs() {
               <Pressable
                 key={t.name}
                 onPress={() => { haptic.light(); navigation.navigate(t.name as never); }}
-                className="flex-1 items-center py-1"
+                style={{
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 3,
+                  paddingHorizontal: 14,
+                  paddingVertical: 6,
+                  borderRadius: 14,
+                  backgroundColor: focused ? T.cream : "transparent",
+                }}
               >
-                <Icon name={t.icon} size={22} color={focused ? "#E23744" : "#93959F"} />
+                <Icon name={t.icon} size={focused ? 22 : 21} color={focused ? T.ink : T.muted} />
                 <Text
-                  className="mt-1 text-[10px] font-semibold"
-                  style={{ color: focused ? "#E23744" : "#93959F", letterSpacing: 0.1 }}
+                  style={{
+                    fontSize: 10.5,
+                    fontWeight: focused ? "700" : "500",
+                    letterSpacing: 0.1,
+                    color: focused ? T.ink : T.muted,
+                  }}
                 >
                   {t.label}
                 </Text>

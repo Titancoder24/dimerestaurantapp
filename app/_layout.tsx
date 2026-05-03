@@ -10,6 +10,9 @@ import { bootstrapAuth } from "@/store/auth";
 import { ToastHost } from "@/components/ui";
 import { CustomerWebShell } from "@/components/ui/CustomerWebShell";
 import { useNotificationListener } from "@/hooks/useNotificationListener";
+import { ensureWebFonts } from "@/lib/fonts";
+
+ensureWebFonts();
 
 function NotificationBridge() {
   useNotificationListener();
@@ -27,12 +30,12 @@ function BrandedSplash() {
     ).start();
   }, [pulse]);
   return (
-    <View style={{ flex: 1, backgroundColor: "#FC8019", alignItems: "center", justifyContent: "center" }}>
+    <View style={{ flex: 1, backgroundColor: "#F6F2EC", alignItems: "center", justifyContent: "center" }}>
       <Animated.View style={{ transform: [{ scale: pulse }], alignItems: "center" }}>
-        <View style={{ height: 72, width: 72, borderRadius: 20, backgroundColor: "#fff", alignItems: "center", justifyContent: "center" }}>
-          <Text style={{ fontSize: 38, fontWeight: "800", color: "#1C1C1E", letterSpacing: -1.5 }}>D</Text>
+        <View style={{ height: 72, width: 72, borderRadius: 20, backgroundColor: "#FF5A1F", alignItems: "center", justifyContent: "center" }}>
+          <Text style={{ fontSize: 38, fontWeight: "800", color: "#fff", letterSpacing: -1.5 }}>D</Text>
         </View>
-        <Text style={{ marginTop: 16, fontSize: 24, fontWeight: "800", color: "#fff", letterSpacing: 3 }}>DIME</Text>
+        <Text style={{ marginTop: 16, fontSize: 24, fontWeight: "800", color: "#0E0E0C", letterSpacing: 3 }}>DIME</Text>
       </Animated.View>
     </View>
   );
